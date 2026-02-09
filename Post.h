@@ -26,12 +26,13 @@ private:
     vector<Comment*> comments;
     int shareCount;
 
+    string category;
 public:
     // Constructor
-    Post(int id, User* user, const string& content, size_t capacity = 500);
+    Post(int id, User* user, const string& content, size_t capacity = 500, const string& cat = "General");
 
     // Factory-style creation
-    static Post* createPost(int id, User* user, size_t capacity = 500);
+    static Post* createPost(int id, User* user, size_t capacity = 500, const string& cat = "General");
 
     // Post lifecycle
     void editPost(const string& newText);
@@ -46,6 +47,8 @@ public:
     void addLike(Like* like);
     void removeLike(Like* like);
     int getLikeCount() const;
+    const vector<Like*>& getLikes() const;//to prevent double liking
+
 
     // Comment management
     void addComment(Comment* comment);
@@ -62,9 +65,14 @@ public:
     size_t getMaxCapacity() const;
     bool isDeletedPost() const;
     time_t getCreationTime() const;
+
+    // Category management
+    string getCategory() const;          // getter
+    void setCategory(const string& cat); // setter
 };
 
 #endif
+
 
 
 
