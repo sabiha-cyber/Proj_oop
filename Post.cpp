@@ -121,11 +121,6 @@ int Post::getLikeCount() const {
     return isDeleted ? 0 : static_cast<int>(likes.size());
 }
 
-const vector<Like*>& Post::getLikes() const {
-    return likes;
-}
-
-
 void Post::viewLikes() const {
     if (isDeleted) {
         cout << "Cannot view likes of a deleted post." << endl;
