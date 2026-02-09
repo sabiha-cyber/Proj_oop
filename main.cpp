@@ -1,57 +1,39 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <limits>
-#include <iomanip>
 
 #include "AuthenticationService.h"
 #include "FriendService.h"
-#include "User.h"
-#include "Post.h"
 
 using namespace std;
 
 int main() {
-    AuthenticationService auth;         
-    FriendService friendService(auth);  
+    AuthenticationService auth;          // loads users from file
+    FriendService friendService(auth);   // loads friend requests & friends
 
     int currentUserId = -1;
-    string inputLine;
-    static int nextPostId = 1000;
+    string choice;
+
 
     while (true) {
-        cout << "\n";
-
         if (currentUserId == -1) {
-            // ───────────── Not logged in ─────────────
-           
+            // -------- NOT LOGGED IN --------
             cout << "1. Register\n";
             cout << "2. Login\n";
             cout << "0. Exit\n";
             cout << "Choice: ";
+            getline(cin, choice);
 
-            getline(cin, inputLine);
-            inputLine.erase(0, inputLine.find_first_not_of(" \t"));
-
-            if (inputLine == "1") {
+            if (choice == "1") {
                 string username, password;
                 cout << "Username: ";
                 getline(cin, username);
                 cout << "Password: ";
                 getline(cin, password);
 
-                if (username.empty() || password.empty()) {
-                    cout << "Username and password cannot be empty.\n";
-                    continue;
-                }
-
-                if (auth.registerUser(username, password)) {
-                    cout << "Registration successful! You can now log in.\n";
-                } else {
-                    cout << "Registration failed (username may already exist).\n";
-                }
+                auth.registerUser(username, password);
             }
-            else if (inputLine == "2") {
+            else if (choice == "2") {
                 string username, password;
                 cout << "Username: ";
                 getline(cin, username);
@@ -59,158 +41,95 @@ int main() {
                 getline(cin, password);
 
                 currentUserId = auth.login(username, password);
-                if (currentUserId != -1) {
-                    cout << "Login successful!\n";
-                } else {
-                    cout << "Login failed – wrong username or password.\n";
-                }
             }
-            else if (inputLine == "0") {
-                cout << "Goodbye!\n";
+            else if (choice == "0") {
                 break;
             }
             else {
-                cout << "Invalid choice. Please try again.\n";
+                cout << "Invalid option.\n";
             }
         }
         else {
-            // ───────────── Logged in ─────────────
-            User* currentUser = auth.findUserById(currentUserId);
-            if (!currentUser) {
-                cout << "Session error: user not found. Logging out...\n";
+            // -------- LOGGED IN --------
+            User* me = auth.findUserById(currentUserId);
+            if (!me) {
+                cout << "Session error. Logging out.\n";
                 currentUserId = -1;
                 continue;
             }
 
-            cout << "=== Welcome, @" << currentUser->getUsername()
-                 << " (ID: " << currentUserId << ") ===\n";
-            cout << string(50, '-') << "\n";
-
-            cout << " 1. Send friend request\n";
-            cout << " 2. Show pending requests\n";
-            cout << " 3. Accept friend request\n";
-            cout << " 4. Reject friend request\n";
-            cout << " 5. Show my friends\n";
-            cout << " 6. List all users\n";
-            cout << " 7. Create new post\n";
-            cout << " 8. View my posts\n";
-            cout << " 9. View news feed\n";
-            cout << " 0. Logout\n";
+            cout << "\nLogged in as: " << me->getUsername()
+                 << " (ID: " << currentUserId << ")\n";
+            cout << "------------------------------------\n";
+            cout << "1. Send friend request\n";
+            cout << "2. Show pending requests\n";
+            cout << "3. Accept friend request\n";
+            cout << "4. Reject friend request\n";
+            cout << "5. Show my friends\n";
+            cout << "6. List all users\n";
+            cout << "0. Logout\n";
             cout << "Choice: ";
 
-            getline(cin, inputLine);
-            inputLine.erase(0, inputLine.find_first_not_of(" \t"));
+            getline(cin, choice);
 
-            if (inputLine == "1") {
+            if (choice == "1") {
                 string target;
-                cout << "Enter target username: ";
+                cout << "Enter username: ";
                 getline(cin, target);
-                if (!target.empty()) {
-                    friendService.sendFriendRequest(currentUserId, target);
-                } else {
-                    cout << "Username cannot be empty.\n";
-                }
+                friendService.sendFriendRequest(currentUserId, target);
             }
-            else if (inputLine == "2") {
+            else if (choice == "2") {
                 friendService.showPendingRequestsForUser(currentUserId);
             }
-            else if (inputLine == "3") {
-                string senderName;
-                cout << "Enter sender username: ";
-                getline(cin, senderName);
-                if (senderName.empty()) {
-                    cout << "Username cannot be empty.\n";
-                    continue;
-                }
-                User* sender = auth.findUserByUsername(senderName);
+            else if (choice == "3") {
+                string fromUser;
+                cout << "Enter sender username to accept: ";
+                getline(cin, fromUser);
+
+                User* sender = auth.findUserByUsername(fromUser);
                 if (sender) {
                     friendService.acceptFriendRequest(currentUserId, sender->getUserId());
                 } else {
                     cout << "User not found.\n";
                 }
             }
-            else if (inputLine == "4") {
-                string senderName;
-                cout << "Enter sender username: ";
-                getline(cin, senderName);
-                if (senderName.empty()) {
-                    cout << "Username cannot be empty.\n";
-                    continue;
-                }
-                User* sender = auth.findUserByUsername(senderName);
+            else if (choice == "4") {
+                string fromUser;
+                cout << "Enter sender username to reject: ";
+                getline(cin, fromUser);
+
+                User* sender = auth.findUserByUsername(fromUser);
                 if (sender) {
                     friendService.rejectFriendRequest(currentUserId, sender->getUserId());
                 } else {
                     cout << "User not found.\n";
                 }
             }
-            else if (inputLine == "5") {
-                vector<int> friendIds = friendService.getFriendIdsOf(currentUserId);
-                if (friendIds.empty()) {
+            else if (choice == "5") {
+                vector<int> friends = friendService.getFriendIdsOf(currentUserId);
+                if (friends.empty()) {
                     cout << "You have no friends yet.\n";
                 } else {
                     cout << "\nYour friends:\n";
-                    cout << string(40, '-') << "\n";
-                    for (int fid : friendIds) {
+                    for (int fid : friends) {
                         User* f = auth.findUserById(fid);
                         if (f) f->printBasicInfo();
                     }
-                    cout << string(40, '-') << "\n";
                 }
             }
-            else if (inputLine == "6") {
+            else if (choice == "6") {
                 auth.listAllUsers();
             }
-            else if (inputLine == "7") {
-                // Clear leftover newline before interactive input
-                cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-                cout << "\n--- Create New Post ---\n";
-                Post* newPost = Post::createPost(nextPostId++, currentUser);
-                if (newPost) {
-                    currentUser->addPost(newPost);
-                    cout << "Your post has been published!\n";
-                } else {
-                    cout << "Post creation cancelled or failed.\n";
-                }
-            }
-            else if (inputLine == "8") {
-                cout << "\n--- Your Posts ---\n";
-                currentUser->showMyPosts();
-            }
-            else if (inputLine == "9") {
-                cout << "\n=== News Feed ===\n";
-                cout << string(50, '-') << "\n";
-
-                cout << "Your recent posts:\n";
-                currentUser->showMyPosts();
-
-                vector<int> friendIds = friendService.getFriendIdsOf(currentUserId);
-                if (!friendIds.empty()) {
-                    cout << "\nFriends' posts:\n";
-                    cout << string(50, '-') << "\n";
-                    for (int fid : friendIds) {
-                        User* friendUser = auth.findUserById(fid);
-                        if (friendUser) {
-                            cout << "@" << friendUser->getUsername() << ":\n";
-                            friendUser->showMyPosts();
-                            cout << "\n";
-                        }
-                    }
-                } else {
-                    cout << "\nNo friends yet. Add some friends to see their posts!\n";
-                }
-            }
-            else if (inputLine == "0") {
-                cout << "Logged out successfully.\n";
+            else if (choice == "0") {
+                cout << "Logged out.\n";
                 currentUserId = -1;
             }
             else {
-                cout << "Invalid choice. Please enter a number from 0-9.\n";
+                cout << "Invalid option.\n";
             }
         }
+
+        cout << "\n";
     }
-
     return 0;
-
 }

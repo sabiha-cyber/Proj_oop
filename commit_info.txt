@@ -1,4 +1,4 @@
-a5819dc4e9be50dbb065fdff15dffc095e3a6d19
+a7f00a681a9ff2cd1fc51921ebe4fa0691e1dbd6
 faribaislam-spec
-Wed Feb 18 23:45:28 2026 +0600
-Comment with new constructor for alignment with CommentManager.
+Mon Feb 9 22:18:07 2026 +0600
+Remove Post.cpp
