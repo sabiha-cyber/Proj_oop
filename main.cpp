@@ -12,8 +12,8 @@
 using namespace std;
 
 int main() {
-    AuthenticationService auth;         // loads users
-    FriendService friendService(auth);  // loads friends & requests
+    AuthenticationService auth;         
+    FriendService friendService(auth);  
 
     int currentUserId = -1;
     string inputLine;
@@ -24,7 +24,7 @@ int main() {
 
         if (currentUserId == -1) {
             // ───────────── Not logged in ─────────────
-            cout << "=== Social Network ===\n";
+           
             cout << "1. Register\n";
             cout << "2. Login\n";
             cout << "0. Exit\n";
@@ -163,7 +163,7 @@ int main() {
             }
             else if (inputLine == "7") {
                 // Clear leftover newline before interactive input
-                //cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
                 cout << "\n--- Create New Post ---\n";
                 Post* newPost = Post::createPost(nextPostId++, currentUser);
@@ -182,11 +182,9 @@ int main() {
                 cout << "\n=== News Feed ===\n";
                 cout << string(50, '-') << "\n";
 
-                // Your own posts
                 cout << "Your recent posts:\n";
                 currentUser->showMyPosts();
 
-                // Friends' posts
                 vector<int> friendIds = friendService.getFriendIdsOf(currentUserId);
                 if (!friendIds.empty()) {
                     cout << "\nFriends' posts:\n";
@@ -213,8 +211,6 @@ int main() {
         }
     }
 
-    // Optional: could add cleanup of all posts here if you want
-    // for now it's fine for learning project (memory leak is acceptable)
-
     return 0;
+
 }
