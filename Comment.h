@@ -25,7 +25,7 @@ public:
     // Constructor
     Comment(User* user, Post* postPtr, const string& content, size_t capacity = 200);
 
-    // Factory-style creation (interactive)
+    //Interactive creation
     static Comment* createComment(User* user, Post* postPtr, size_t capacity = 200);
 
     // Lifecycle
