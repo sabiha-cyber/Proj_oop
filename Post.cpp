@@ -210,14 +210,7 @@ void Post::viewComments() const {
 const vector<Comment*>& Post::getComments() const {
     return comments;
 }
-void Post::removeCommentPointer(Comment* c) {
-    if (!c) return;
 
-    auto it = std::find(comments.begin(), comments.end(), c);
-    if (it != comments.end()) {
-        comments.erase(it);
-    }
-}
 // Share
 void Post::sharePost() {
     if (!isDeleted) {
