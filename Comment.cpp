@@ -13,7 +13,7 @@ using namespace std;
 // Static member initialization
 int Comment::nextId = 1;
 
-// Constructor (normal creation: auto ID + current time)
+// Constructor
 Comment::Comment(User* user, Post* postPtr, const string& content, size_t capacity)
     : commentId(nextId++),
       author(user),
@@ -27,35 +27,6 @@ Comment::Comment(User* user, Post* postPtr, const string& content, size_t capaci
     } else {
         text = content.substr(0, maxCapacity);
         cout << "Warning: Comment truncated to " << maxCapacity << " characters.\n";
-    }
-}
-
-// constructor (loading: fixed ID + fixed time + deleted state)
-Comment::Comment(int id, User* user, Post* postPtr,
-                 const string& content, size_t capacity,
-                 time_t created, bool deleted)
-    : commentId(id),
-      author(user),
-      post(postPtr),
-      maxCapacity(capacity),
-      isDeleted(deleted),
-      createdAt(created)
-{
-    // Keep nextId correct so future new comments don't reuse existing IDs
-    if (id >= nextId) {
-        nextId = id + 1;
-    }
-
-    // Store text (respect capacity)
-    if (content.length() <= maxCapacity) {
-        text = content;
-    } else {
-        text = content.substr(0, maxCapacity);
-    }
-
-    // If deleted, match your deleteComment() behavior so Post::viewComments shows it correctly
-    if (isDeleted) {
-        text = "[This comment has been deleted]";
     }
 }
 
@@ -111,7 +82,7 @@ void Comment::editComment(const string& newText) {
     }
 }
 
-// Deletion
+//Deletion
 void Comment::deleteComment() {
     if (isDeleted) {
         cout << "Comment already deleted.\n";

@@ -1,4 +1,4 @@
-9f94ddc424532a375acc1812583197d1a2b758a6
+a5819dc4e9be50dbb065fdff15dffc095e3a6d19
 faribaislam-spec
-Thu Feb 19 00:01:32 2026 +0600
-Updated comment
+Wed Feb 18 23:45:28 2026 +0600
+Comment with new constructor for alignment with CommentManager.
