@@ -53,6 +53,7 @@ public:
     // Comment management
     void addComment(Comment* comment);
     const vector<Comment*>& getComments() const;
+    void removeCommentPointer(Comment* c);
 
     // Share
     void sharePost();
