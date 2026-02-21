@@ -2,44 +2,45 @@
 #define COMMENT_H
 
 #include <string>
+#include <cstddef>
 #include <ctime>
-#include <iostream>
 
-using namespace std;
-
-class User; // forward declaration
-class Post; // forward declaration
+class User;
+class Post;
 
 class Comment {
 private:
-    static int nextId;   // static variable for auto-increment
-    int commentId;       // unique comment ID
-    User* author;        // pointer to author
-    Post* post;          // pointer to the post this comment belongs to
-    string text;         // comment text
-    const size_t maxCapacity; // max allowed characters
-    time_t createdAt;    // timestamp
-    bool isDeleted;      // deleted flag
+    static int nextId;
+
+    int commentId;
+    User* author;
+    Post* post;
+
+    std::string text;
+    size_t maxCapacity;
+    bool isDeleted;
+    time_t createdAt;
 
 public:
-    // Constructor
-    Comment(User* user, Post* postPtr, const string& content, size_t capacity = 200);
+    // Existing constructor (normal creation: auto ID + auto time)
+    Comment(User* user, Post* postPtr, const std::string& content, size_t capacity);
 
-    // Factory-style creation (interactive)
-    static Comment* createComment(User* user, Post* postPtr, size_t capacity = 200);
+    //constructor (loading: fixed ID + fixed time + deleted state)
+    Comment(int id, User* user, Post* postPtr,
+            const std::string& content, size_t capacity,
+            time_t created, bool deleted);
 
-    // Lifecycle
-    void editComment(const string& newText);
+    static Comment* createComment(User* user, Post* postPtr, size_t capacity);
+
+    void editComment(const std::string& newText);
     void deleteComment();
-
-    // Display
     void viewComment() const;
 
     // Getters
     int getCommentId() const;
     User* getAuthor() const;
     Post* getPost() const;
-    string getText() const;
+    std::string getText() const;
     time_t getCreationTime() const;
     bool isDeletedComment() const;
     size_t getMaxCapacity() const;

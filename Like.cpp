@@ -3,31 +3,43 @@
 #include "Post.h"
 
 #include <iostream>
+#include <ctime>
+
 using namespace std;
 
-// Initialize static member
 int Like::nextId = 1;
 
-// Constructor
+// Normal constructor
 Like::Like(User* userPtr, Post* postPtr)
     : likeId(nextId++), user(userPtr), post(postPtr), createdAt(time(nullptr)) {}
 
+// Loading constructor
+Like::Like(int id, User* userPtr, Post* postPtr, time_t created)
+    : likeId(id), user(userPtr), post(postPtr), createdAt(created)
+{
+    if (id >= nextId) {
+        nextId = id + 1;
+    }
+}
+
 // Factory-style creation with double-like prevention
 Like* Like::createLike(User* userPtr, Post* postPtr) {
-    // Check if this user already liked the post
+    if (!userPtr || !postPtr) return nullptr;
+
     for (Like* l : postPtr->getLikes()) {
-        if (l->getUser() == userPtr) {
+        if (l && l->getUser() == userPtr) {
             cout << userPtr->getUsername() << " has already liked post "
                  << postPtr->getPostId() << endl;
-            return nullptr;  // Do not create a new like
+            return nullptr;
         }
     }
 
-    // If not liked yet, create and attach
     Like* newLike = new Like(userPtr, postPtr);
     postPtr->addLike(newLike);
+
     cout << userPtr->getUsername() << " liked post " << postPtr->getPostId()
          << " (Like ID: " << newLike->getLikeId() << ")" << endl;
+
     return newLike;
 }
 
@@ -39,6 +51,11 @@ time_t Like::getTime() const { return createdAt; }
 
 // Display
 void Like::viewLike() const {
+    if (!user) {
+        cout << "Unknown user liked this (Like ID: " << likeId << ")\n";
+        return;
+    }
+
     tm* timeinfo = localtime(&createdAt);
     char buffer[64];
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);

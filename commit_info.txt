@@ -1,4 +1,4 @@
-21b6d9e76ff04e2dfe74f0716edcb0748743517b
+53bda1b93b5f8fe13b171cc3dbc8dbecb4a89a56
 faribaislam-spec
-Mon Feb 9 22:20:53 2026 +0600
-Merge branch 'main' of https://github.com/sabiha-cyber/Proj_oop
+Sat Feb 21 22:29:32 2026 +0600
+Updated like for LikeManager and LikeManager for file handling.
