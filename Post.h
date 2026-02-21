@@ -47,10 +47,13 @@ public:
     void addLike(Like* like);
     void removeLike(Like* like);
     int getLikeCount() const;
+    const vector<Like*>& getLikes() const;//to prevent double liking
+
 
     // Comment management
     void addComment(Comment* comment);
     const vector<Comment*>& getComments() const;
+    void removeCommentPointer(Comment* c);
 
     // Share
     void sharePost();
