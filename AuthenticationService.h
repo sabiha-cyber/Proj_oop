@@ -8,10 +8,9 @@
 
 class AuthenticationService {
 private:
-    std::vector<User> users;
-    std::map<std::string, int> usernameToUserId;
-
-    int nextUserId = 1;
+    std::vector<User>            users;
+    std::map<std::string, int>   usernameToUserId;
+    int                          nextUserId = 1;
 
     static const std::string USERS_FILE;
 
@@ -21,21 +20,26 @@ private:
 public:
     AuthenticationService();
 
+    // ── Registration & Login ──────────────────────────────────────────────────
     bool registerUser(const std::string& username, const std::string& password);
+    int  login       (const std::string& username, const std::string& password) const;
 
-    int login(const std::string& username, const std::string& password) const;
-
-    User*       findUserById(int id);
-    const User* findUserById(int id) const;
+    // ── Lookup (non-const + const overloads) ──────────────────────────────────
+    User*       findUserById      (int id);
+    const User* findUserById      (int id)                     const;
 
     User*       findUserByUsername(const std::string& username);
     const User* findUserByUsername(const std::string& username) const;
 
+    // ── Display ───────────────────────────────────────────────────────────────
     void listAllUsers() const;
 
-    // Allow FriendService / SocialNetwork to access users
-    std::vector<User>&       getUsers();
-    std::map<std::string, int>& getUsernameToIdMap();
+    // ── Accessors for FriendService / SocialNetwork ───────────────────────────
+    std::vector<User>&              getUsers();
+    const std::vector<User>&        getUsers()             const;   // ← ADDED
+
+    std::map<std::string, int>&       getUsernameToIdMap();
+    const std::map<std::string, int>& getUsernameToIdMap() const;   // ← ADDED
 };
 
 #endif // AUTHENTICATION_SERVICE_H
