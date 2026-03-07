@@ -23,6 +23,12 @@ void CommentManager::addComment(Comment* comment) {
 
 void CommentManager::clear() {
     for (Comment* c : comments) {
+        if (!c) continue;
+
+        if (Post* p = c->getPost()) {
+            p->removeCommentPointer(c);//detach from its post
+        }
+
         delete c;
     }
     comments.clear();
@@ -36,8 +42,9 @@ void CommentManager::removeCommentsForPost(Post* post) {
         Comment* c = *it;
 
         if (c != nullptr && c->getPost() == post) {
-            delete c;
-            it = comments.erase(it);
+            post->removeCommentPointer(c);   // detach from Post first
+            delete c;                        // hard delete object
+            it = comments.erase(it);         // remove from manager list
         } else {
             ++it;
         }

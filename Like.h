@@ -2,27 +2,28 @@
 #define LIKE_H
 
 #include <ctime>
-#include <iostream>
 
-using namespace std;
-
-class User; // forward declaration
-class Post; // forward declaration
+class User;
+class Post;
+class NotificationManager;
 
 class Like {
 private:
-    static int nextId;   // auto-increment ID
-    int likeId;          // unique like ID
-    User* user;          // who liked
-    Post* post;          // post that was liked
-    time_t createdAt;    // timestamp
+    static int nextId;
+    int likeId;
+    User* user;
+    Post* post;
+    time_t createdAt;
 
 public:
-    // Constructor
+    // Normal constructor (auto ID + current time)
     Like(User* userPtr, Post* postPtr);
 
-    // Factory-style creation
-    static Like* createLike(User* userPtr, Post* postPtr);
+    // Loading constructor (fixed ID + fixed time)
+    Like(int id, User* userPtr, Post* postPtr, time_t created);
+
+    // Factory-style creation (prevents double-like)
+    static Like* createLike(User* userPtr, Post* postPtr, NotificationManager* notifMgr = nullptr);
 
     // Getters
     int getLikeId() const;
