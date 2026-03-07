@@ -7,9 +7,11 @@
 #include <map>
 #include <string>
 
+class NotificationManager;
 class FriendService {
 private:
     AuthenticationService& authService;
+    NotificationManager*   notifMgr=nullptr;
 
     // Pending requests: senderId → list of receiverIds who have pending request from him
     std::map<int, std::vector<int>> pendingRequests;
@@ -23,13 +25,14 @@ private:
     void saveFriends() const;
 
 public:
-    explicit FriendService(AuthenticationService& auth);
+    explicit FriendService(AuthenticationService& auth, NotificationManager* notifMgr = nullptr);
 
     bool sendFriendRequest(int senderId, const std::string& targetUsername);
 
     bool acceptFriendRequest(int receiverId, int senderId);
 
     bool rejectFriendRequest(int receiverId, int senderId);
+     bool removeFriend(int userId, int friendId);
 
     void showPendingRequestsForUser(int userId) const;
 
