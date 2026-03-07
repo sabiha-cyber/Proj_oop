@@ -20,16 +20,15 @@ private:
     }
 
     void displayMainMenu() {
-        //cout << "\n╔════════════════════════════════════════════════════════╗" << endl;
         if (messenger.isUserLoggedIn()) {
-            cout << "║  Logged in as: " << messenger.getCurrentUsername() 
+            cout << "  Logged in as: " << messenger.getCurrentUsername() 
                  << " (" << messenger.getCurrentUserId() << ")";
             int padding = 54 - messenger.getCurrentUsername().length() - messenger.getCurrentUserId().length() - 19;
-            cout << string(max(0, padding), ' ') << "║" << endl;
+            cout << string(max(0, padding), ' ') << " " << endl;
         }
         cout << "|--------------------------------------------------------|" << endl;
         cout << "|  1. Send Message                                       |" << endl;
-        cout << "| 2. View My Conversations                               |" << endl;
+        cout << "|  2. View My Conversations                              |" << endl;
         cout << "|  3. View Conversation                                  |" << endl;
         cout << "|  4. Create Group                                       |" << endl;
         cout << "|  5. Send Group Message                                 |" << endl;
@@ -37,7 +36,7 @@ private:
         cout << "|  7. View Group Details                                 |" << endl;
         cout << "|  8. Like/Unlike Message                                |" << endl;
         cout << "|  9. View All Users                                     |" << endl;
-        cout << "|  0. Logout                                             |" << endl;
+        cout << "|  0. Back                                               |" << endl;
         cout << "|--------------------------------------------------------|" << endl;
         cout << "Enter choice: ";
     }
@@ -51,18 +50,15 @@ private:
                 cout << "  - " << user.second << " (ID: " << user.first << ")" << endl;
             }
         }
-        
         cout << "\nEnter receiver ID: ";
         getline(cin, receiverId);
         cout << "Enter message: ";
         getline(cin, content);
-        
         messenger.sendMessage(receiverId, content);
     }
 
     void handleViewMyConversations() {
         auto convs = messenger.getMyConversations();
-        
         printSeparator("MY CONVERSATIONS");
         if (convs.empty()) {
             cout << "No conversations yet." << endl;
@@ -83,31 +79,23 @@ private:
         string otherUserId;
         cout << "Enter user ID to view conversation: ";
         getline(cin, otherUserId);
-        
         auto conv = messenger.getConversation(messenger.getCurrentUserId(), otherUserId);
         if (!conv) {
             cout << "No conversation found with " << messenger.getUsername(otherUserId) << endl;
             return;
         }
-
         printSeparator("CONVERSATION WITH " + messenger.getUsername(otherUserId));
-        
         auto messages = conv->getMessages();
         if (messages.empty()) {
             cout << "No messages yet." << endl;
             return;
         }
-
         for (const auto& msg : messages) {
             bool isMine = (msg->getSenderId() == messenger.getCurrentUserId());
             string sender = isMine ? "You" : messenger.getUsername(msg->getSenderId());
-            
             cout << "\n[" << msg->getMessageId() << "]" << endl;
             cout << sender << ": " << msg->getContent();
-            
-            if (msg->getLikeCount() > 0) {
-                cout << " [" << msg->getLikeCount() << " ❤️]";
-            }
+            if (msg->getLikeCount() > 0) cout << " [" << msg->getLikeCount() << " <3]";
             cout << endl;
         }
     }
@@ -118,7 +106,6 @@ private:
         getline(cin, groupName);
         cout << "Enter member IDs (comma-separated, optional): ";
         getline(cin, participantsInput);
-        
         vector<string> participants;
         if (!participantsInput.empty()) {
             stringstream ss(participantsInput);
@@ -129,52 +116,40 @@ private:
                 if (!id.empty()) participants.push_back(id);
             }
         }
-        
         auto group = messenger.createGroup(groupName, participants);
-        if (group) {
-            cout << "Group ID: " << group->getGroupId() << endl;
-        }
+        if (group) cout << "Group ID: " << group->getGroupId() << endl;
     }
 
     void handleSendGroupMessage() {
-        string groupId, content;
-        
         auto myGroups = messenger.getMyGroups();
         if (myGroups.empty()) {
             cout << "You are not in any groups yet." << endl;
             return;
         }
-        
         cout << "\nYour groups:" << endl;
-        for (const auto& g : myGroups) {
-            cout << "  - " << g->getGroupName() 
-                 << " (ID: " << g->getGroupId() << ")" << endl;
-        }
-        
+        for (const auto& g : myGroups)
+            cout << "  - " << g->getGroupName() << " (ID: " << g->getGroupId() << ")" << endl;
+        string groupId, content;
         cout << "\nEnter group ID: ";
         getline(cin, groupId);
         cout << "Enter message: ";
         getline(cin, content);
-        
         messenger.sendGroupMessage(groupId, content);
     }
 
     void handleViewMyGroups() {
         auto myGroups = messenger.getMyGroups();
-        
         printSeparator("MY GROUPS");
         if (myGroups.empty()) {
             cout << "You are not in any groups yet." << endl;
         } else {
             cout << "You are in " << myGroups.size() << " group(s):" << endl;
             for (const auto& g : myGroups) {
-                cout << "  - " << g->getGroupName() 
+                cout << "  - " << g->getGroupName()
                      << " (ID: " << g->getGroupId() << ")"
                      << " - " << g->getParticipantCount() << " member(s)"
                      << " - " << g->getMessageCount() << " message(s)";
-                if (g->getAdminId() == messenger.getCurrentUserId()) {
-                    cout << " [You are admin]";
-                }
+                if (g->getAdminId() == messenger.getCurrentUserId()) cout << " [You are admin]";
                 cout << endl;
             }
         }
@@ -184,56 +159,33 @@ private:
         string groupId;
         cout << "Enter group ID: ";
         getline(cin, groupId);
-        
         auto group = messenger.getGroup(groupId);
-        if (!group) {
-            cout << "Group not found!" << endl;
-            return;
-        }
-
+        if (!group) { cout << "Group not found!" << endl; return; }
         if (!group->isParticipant(messenger.getCurrentUserId())) {
             cout << "You are not a member of this group!" << endl;
             return;
         }
-
         printSeparator("GROUP: " + group->getGroupName());
-        
         cout << "Group ID: " << group->getGroupId() << endl;
         cout << "Admin: " << messenger.getUsername(group->getAdminId());
-        if (group->getAdminId() == messenger.getCurrentUserId()) {
-            cout << " (You)";
-        }
+        if (group->getAdminId() == messenger.getCurrentUserId()) cout << " (You)";
         cout << endl;
-        
         cout << "\nMembers (" << group->getParticipantCount() << "):" << endl;
         for (const auto& pid : group->getParticipantIds()) {
             cout << "  - " << messenger.getUsername(pid);
-            if (pid == messenger.getCurrentUserId()) {
-                cout << " (You)";
-            }
-            if (pid == group->getAdminId()) {
-                cout << " [Admin]";
-            }
+            if (pid == messenger.getCurrentUserId()) cout << " (You)";
+            if (pid == group->getAdminId()) cout << " [Admin]";
             cout << endl;
         }
-
         cout << "\nMessages:" << endl;
         auto messages = group->getMessages();
-        if (messages.empty()) {
-            cout << "No messages yet." << endl;
-            return;
-        }
-
+        if (messages.empty()) { cout << "No messages yet." << endl; return; }
         for (const auto& msg : messages) {
             bool isMine = (msg->getSenderId() == messenger.getCurrentUserId());
             string sender = isMine ? "You" : messenger.getUsername(msg->getSenderId());
-            
             cout << "\n[" << msg->getMessageId() << "]" << endl;
             cout << sender << ": " << msg->getContent();
-            
-            if (msg->getLikeCount() > 0) {
-                cout << " [" << msg->getLikeCount() << " ❤️]";
-            }
+            if (msg->getLikeCount() > 0) cout << " [" << msg->getLikeCount() << " <3]";
             cout << endl;
         }
     }
@@ -241,27 +193,21 @@ private:
     void handleLikeUnlike() {
         string messageId, chatId;
         char typeChoice, actionChoice;
-        
         cout << "Is this a (c)onversation or (g)roup? ";
         cin >> typeChoice;
         cin.ignore();
-        
         bool isGroup = (typeChoice == 'g' || typeChoice == 'G');
-        
-        cout << "Enter " << (isGroup ? "group" : "conversation") << " ID: ";
+        cout << "Enter " << (isGroup ? "group" : "conversation") << " ID:[forma: conv_smallerid_largerid]";
         getline(cin, chatId);
         cout << "Enter message ID: ";
         getline(cin, messageId);
-        
         cout << "(L)ike or (U)nlike? ";
         cin >> actionChoice;
         cin.ignore();
-        
-        if (actionChoice == 'L' || actionChoice == 'l') {
+        if (actionChoice == 'L' || actionChoice == 'l')
             messenger.likeMessage(messageId, chatId, isGroup);
-        } else {
+        else
             messenger.unlikeMessage(messageId, chatId, isGroup);
-        }
     }
 
 public:
@@ -269,12 +215,10 @@ public:
 
     void runChatInterface() {
         int choice;
-        
         do {
             displayMainMenu();
             cin >> choice;
             cin.ignore();
-
             switch (choice) {
                 case 1: handleSendMessage(); break;
                 case 2: handleViewMyConversations(); break;
@@ -285,68 +229,18 @@ public:
                 case 7: handleViewGroupDetails(); break;
                 case 8: handleLikeUnlike(); break;
                 case 9: messenger.displayAllUsers(); break;
-                case 0: 
+                case 0:
                     messenger.logout();
-                    cout << "Logged out successfully!" << endl;
+                    cout << "Returning to News Feed...\n";
                     return;
                 default:
-                    cout << "Invalid choice!" << endl;
+                    cout << "Invalid choice!\n";
             }
-            
             if (choice != 0) {
                 cout << "\nPress Enter to continue...";
                 cin.get();
             }
-            
         } while (choice != 0);
-    }
-
-    void displayWelcome() {
-        printSeparator("MESSENGER SYSTEM");
-        cout << "Welcome to the Messenger!" << endl;
-        printSeparator();
-    }
-
-    void runLoginMenu() {
-        while (true) {
-            printSeparator("LOGIN");
-            cout << "1. Login" << endl;
-            cout << "2. Register New User" << endl;
-            cout << "3. Exit" << endl;
-            cout << "Choice: ";
-            
-            int choice;
-            cin >> choice;
-            cin.ignore();
-            
-            if (choice == 1) {
-                string userId;
-                cout << "\nEnter your User ID: ";
-                getline(cin, userId);
-                
-                if (messenger.login(userId)) {
-                    runChatInterface();
-                }
-            } 
-            else if (choice == 2) {
-                string userId, username;
-                cout << "\nEnter desired User ID: ";
-                getline(cin, userId);
-                cout << "Enter your name: ";
-                getline(cin, username);
-                
-                if (messenger.registerUser(userId, username)) {
-                    cout << "Registration successful! You can now login." << endl;
-                }
-            }
-            else if (choice == 3) {
-                cout << "Goodbye!" << endl;
-                break;
-            }
-            else {
-                cout << "Invalid choice!" << endl;
-            }
-        }
     }
 };
 
