@@ -1,135 +1,300 @@
-#include <iostream>
-#include <string>
-#include <vector>
-
-#include "AuthenticationService.h"
+#include "User.h"
+#include "PostManager.h"
+#include "LikeManager.h"
+#include "CommentManager.h"
+#include "NotificationManager.h"
+#include "NewsFeed.h"
 #include "FriendService.h"
+#include "AuthenticationService.h"
+
+#include <iostream>
+#include <iomanip>
+#include <limits>
+#include <vector>
+#include <filesystem>
 
 using namespace std;
 
-int main() {
-    AuthenticationService auth;          // loads users from file
-    FriendService friendService(auth);   // loads friend requests & friends
+// ── Forward declarations ──────────────────────────────────────────────────────
 
-    int currentUserId = -1;
-    string choice;
+static void userSession(User* currentUser,
+                        AuthenticationService& authService,
+                        PostManager& postManager,
+                        FriendService& friendService,
+                        NotificationManager& notificationManager,
+                        LikeManager& likeManager,
+                        CommentManager& commentManager);
 
+static void showLoginMenu(AuthenticationService& authService,
+                          PostManager& postManager,
+                          FriendService& friendService,
+                          NotificationManager& notificationManager,
+                          LikeManager& likeManager,
+                          CommentManager& commentManager);
 
-    while (true) {
-        if (currentUserId == -1) {
-            // -------- NOT LOGGED IN --------
-            cout << "1. Register\n";
-            cout << "2. Login\n";
-            cout << "0. Exit\n";
-            cout << "Choice: ";
-            getline(cin, choice);
+// ── Login Menu ────────────────────────────────────────────────────────────────
 
-            if (choice == "1") {
-                string username, password;
-                cout << "Username: ";
-                getline(cin, username);
-                cout << "Password: ";
-                getline(cin, password);
+static void showLoginMenu(AuthenticationService& authService,
+                          PostManager& postManager,
+                          FriendService& friendService,
+                          NotificationManager& notificationManager,
+                          LikeManager& likeManager,
+                          CommentManager& commentManager)
+{
+    int choice = -1;
 
-                auth.registerUser(username, password);
-            }
-            else if (choice == "2") {
-                string username, password;
-                cout << "Username: ";
-                getline(cin, username);
-                cout << "Password: ";
-                getline(cin, password);
+    while (choice != 0) {
+        cout << "\n+======================================================+\n";
+        cout << "|              WELCOME TO FACEBOOK                     |\n";
+        cout << "+======================================================+\n";
+        cout << "|  1. Login                                            |\n";
+        cout << "|  2. Create New Account                               |\n";
+        cout << "|  3. List All Users                                   |\n";
+        cout << "|  0. Exit                                             |\n";
+        cout << "+======================================================+\n";
+        cout << "Enter choice: ";
 
-                currentUserId = auth.login(username, password);
-            }
-            else if (choice == "0") {
-                break;
-            }
-            else {
-                cout << "Invalid option.\n";
-            }
+        cin >> choice;
+
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input.\n";
+            choice = -1;
+            continue;
         }
-        else {
-            // -------- LOGGED IN --------
-            User* me = auth.findUserById(currentUserId);
-            if (!me) {
-                cout << "Session error. Logging out.\n";
-                currentUserId = -1;
-                continue;
-            }
 
-            cout << "\nLogged in as: " << me->getUsername()
-                 << " (ID: " << currentUserId << ")\n";
-            cout << "------------------------------------\n";
-            cout << "1. Send friend request\n";
-            cout << "2. Show pending requests\n";
-            cout << "3. Accept friend request\n";
-            cout << "4. Reject friend request\n";
-            cout << "5. Show my friends\n";
-            cout << "6. List all users\n";
-            cout << "0. Logout\n";
-            cout << "Choice: ";
+        switch (choice) {
+            case 1: {
+                string username, password;
+                cout << "Username: ";
+                cin >> username;
+                cout << "Password: ";
+                cin >> password;
 
-            getline(cin, choice);
-
-            if (choice == "1") {
-                string target;
-                cout << "Enter username: ";
-                getline(cin, target);
-                friendService.sendFriendRequest(currentUserId, target);
-            }
-            else if (choice == "2") {
-                friendService.showPendingRequestsForUser(currentUserId);
-            }
-            else if (choice == "3") {
-                string fromUser;
-                cout << "Enter sender username to accept: ";
-                getline(cin, fromUser);
-
-                User* sender = auth.findUserByUsername(fromUser);
-                if (sender) {
-                    friendService.acceptFriendRequest(currentUserId, sender->getUserId());
-                } else {
-                    cout << "User not found.\n";
-                }
-            }
-            else if (choice == "4") {
-                string fromUser;
-                cout << "Enter sender username to reject: ";
-                getline(cin, fromUser);
-
-                User* sender = auth.findUserByUsername(fromUser);
-                if (sender) {
-                    friendService.rejectFriendRequest(currentUserId, sender->getUserId());
-                } else {
-                    cout << "User not found.\n";
-                }
-            }
-            else if (choice == "5") {
-                vector<int> friends = friendService.getFriendIdsOf(currentUserId);
-                if (friends.empty()) {
-                    cout << "You have no friends yet.\n";
-                } else {
-                    cout << "\nYour friends:\n";
-                    for (int fid : friends) {
-                        User* f = auth.findUserById(fid);
-                        if (f) f->printBasicInfo();
+                int userId = authService.login(username, password);
+                if (userId != -1) {
+                    User* user = authService.findUserById(userId);
+                    if (user) {
+                        userSession(user, authService, postManager,
+                                    friendService, notificationManager,
+                                    likeManager, commentManager);
                     }
                 }
+                break;
             }
-            else if (choice == "6") {
-                auth.listAllUsers();
+
+            case 2: {
+                string username, password, confirmPassword;
+                cout << "Choose a username: ";
+                cin >> username;
+                cout << "Choose a password: ";
+                cin >> password;
+                cout << "Confirm password: ";
+                cin >> confirmPassword;
+
+                if (password != confirmPassword) {
+                    cout << "ERROR: Passwords do not match.\n";
+                    break;
+                }
+
+                authService.registerUser(username, password);
+                break;
             }
-            else if (choice == "0") {
-                cout << "Logged out.\n";
-                currentUserId = -1;
-            }
-            else {
-                cout << "Invalid option.\n";
-            }
+
+            case 3:
+                authService.listAllUsers();
+                break;
+
+            case 0:
+                cout << "Goodbye!\n";
+                break;
+
+            default:
+                cout << "Invalid choice.\n";
+        }
+    }
+}
+
+// ── User Session ──────────────────────────────────────────────────────────────
+
+static void userSession(User* currentUser,
+                        AuthenticationService& authService,
+                        PostManager& postManager,
+                        FriendService& friendService,
+                        NotificationManager& notificationManager,
+                        LikeManager& likeManager,
+                        CommentManager& commentManager)
+{
+    int choice = -1;
+
+    while (choice != 0) {
+        cout << "\n+---------------- MAIN MENU ----------------+\n";
+        cout << "Logged in as: @" << currentUser->getUsername() << "\n";
+        cout << "1. News Feed\n";
+        cout << "2. Manage Friends\n";
+        cout << "3. My Posts\n";
+        cout << "4. View My Profile\n";
+        cout << "0. Logout\n";
+        cout << "Choice: ";
+
+        cin >> choice;
+
+        if (cin.fail()) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input.\n";
+            choice = -1;
+            continue;
         }
 
-        cout << "\n";
+        switch (choice) {
+            case 1: {
+                NewsFeed newsFeed(currentUser, &postManager, &authService,
+                                  &friendService, &notificationManager,
+                                  &likeManager, &commentManager);
+                newsFeed.showNewsFeedMenu();
+                postManager.saveToFile("posts.txt");
+                break;
+            }
+
+            case 2: {
+                int fc = -1;
+                while (fc != 0) {
+                    cout << "\n--------- FRIENDS ---------\n";
+                    cout << "1. Send Friend Request\n";
+                    cout << "2. Accept Friend Request\n";
+                    cout << "3. Reject Friend Request\n";
+                    cout << "4. View Pending Requests\n";
+                    cout << "5. View My Friends\n";
+                    cout << "6. Remove Friend\n";
+                    cout << "7. View All Users\n";
+                    cout << "0. Back\n";
+                    cout << "Choice: ";
+                    cin >> fc;
+
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                        cout << "Invalid input.\n";
+                        fc = -1;
+                        continue;
+                    }
+
+                    switch (fc) {
+                        case 1: {
+                            authService.listAllUsers();
+                            int targetId;
+                            cout << "Enter user ID to send request to: ";
+                            cin >> targetId;
+                            User* target = authService.findUserById(targetId);
+                            if (!target) { cout << "User not found.\n"; break; }
+                            friendService.sendFriendRequest(currentUser->getUserId(), target->getUsername());
+                            break;
+                        }
+
+                        case 2: {
+                            friendService.showPendingRequestsForUser(currentUser->getUserId());
+                            int senderId;
+                            cout << "Enter sender ID to accept: ";
+                            cin >> senderId;
+                            friendService.acceptFriendRequest(currentUser->getUserId(), senderId);
+                            break;
+                        }
+
+                        case 3: {
+                            friendService.showPendingRequestsForUser(currentUser->getUserId());
+                            int senderId;
+                            cout << "Enter sender ID to reject: ";
+                            cin >> senderId;
+                            friendService.rejectFriendRequest(currentUser->getUserId(), senderId);
+                            break;
+                        }
+
+                        case 4:
+                            friendService.showPendingRequestsForUser(currentUser->getUserId());
+                            break;
+
+                        case 5: {
+                            auto friendIds = friendService.getFriendIdsOf(currentUser->getUserId());
+                            if (friendIds.empty()) {
+                                cout << "No friends yet.\n";
+                            } else {
+                                for (int fid : friendIds) {
+                                    User* u = authService.findUserById(fid);
+                                    if (u) cout << "ID: " << fid << " | @" << u->getUsername() << "\n";
+                                }
+                            }
+                            break;
+                        }
+
+                        case 6: {
+                            int fid;
+                            cout << "Enter friend ID to remove: ";
+                            cin >> fid;
+                            friendService.removeFriend(currentUser->getUserId(), fid);
+                            break;
+                        }
+
+                        case 7:
+                            authService.listAllUsers();
+                            break;
+
+                        case 0:
+                            break;
+
+                        default:
+                            cout << "Invalid choice.\n";
+                    }
+                }
+                break;
+            }
+
+            case 3:
+                currentUser->showMyPosts();
+                break;
+
+            case 4:
+                currentUser->printBasicInfo();
+                break;
+
+            case 0:
+                cout << "Logging out...\n";
+                break;
+
+            default:
+                cout << "Invalid choice.\n";
+        }
     }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+int main() {
+    AuthenticationService authService;
+    cout << "DEBUG current_path = " << filesystem::current_path() << "\n";
+    cout << "DEBUG users loaded = " << authService.getUsers().size() << "\n";
+    authService.listAllUsers();
+
+    PostManager postManager(500);
+    LikeManager likeManager;
+    CommentManager commentManager;
+
+    NotificationManager notificationManager(&likeManager, &commentManager,
+                                            &postManager, &authService, nullptr);
+    FriendService friendService(authService, &notificationManager);
+
+    // Load posts using the same User objects owned by authService
+    vector<User*> usersForLoading;
+    for (User& u : authService.getUsers()) usersForLoading.push_back(&u);
+    postManager.loadFromFile("posts.txt", usersForLoading);
+
+    showLoginMenu(authService, postManager, friendService,
+                  notificationManager, likeManager, commentManager);
+
+    postManager.saveToFile("posts.txt");
+    likeManager.saveToFile("likes.txt");
+    commentManager.saveToFile("comments.txt");
+
     return 0;
 }
