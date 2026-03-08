@@ -6,7 +6,7 @@
 
 using namespace std;
 
-// ── Full constructor (load from file) ─────────────────────────────────────────
+// ──constructor──
 Notification::Notification(int notifId,
                             int recipientUserId,
                             int actorUserId,
@@ -27,7 +27,7 @@ Notification::Notification(int notifId,
       read(read)
 {}
 
-// ── Factory constructor (fresh notification) ──────────────────────────────────
+// ──  constructor ──
 Notification::Notification(int notifId,
                             int recipientUserId,
                             int actorUserId,
@@ -46,7 +46,7 @@ Notification::Notification(int notifId,
       read(false)
 {}
 
-// ── Actions ───────────────────────────────────────────────────────────────────
+// ── Actions ───────
 void Notification::markAsRead() {
     read = true;
 }
@@ -82,7 +82,6 @@ string Notification::buildMessage() const {
 }
 
 void Notification::display() const {
-    // Format: [●/○] [HH:MM]  message
     tm* ti = localtime(&createdAt);
     char timeBuf[16];
     strftime(timeBuf, sizeof(timeBuf), "%H:%M", ti);
@@ -110,7 +109,7 @@ void Notification::displayDetailed() const {
          << "  Read      : " << (read ? "yes" : "no") << "\n";
 }
 
-// ── Static helpers ────────────────────────────────────────────────────────────
+// ── Static helpers─────────
 string Notification::typeToString(NotificationType t) {
     switch (t) {
         case NotificationType::LIKE:           return "LIKE";
@@ -130,7 +129,7 @@ NotificationType Notification::stringToType(const string& s) {
     if (s == "FRIEND_ACCEPT")  return NotificationType::FRIEND_ACCEPT;
     if (s == "POST_SHARE")     return NotificationType::POST_SHARE;
     if (s == "MENTION")        return NotificationType::MENTION;
-    return NotificationType::LIKE; // fallback
+    return NotificationType::LIKE;
 }
 
 // ── Getters ───────────────────────────────────────────────────────────────────
@@ -142,4 +141,5 @@ int              Notification::getReferenceId()   const { return referenceId; }
 string           Notification::getActorUsername() const { return actorUsername; }
 string           Notification::getSnippet()       const { return snippet; }
 time_t           Notification::getCreatedAt()     const { return createdAt; }
+
 bool             Notification::isRead()           const { return read; }
