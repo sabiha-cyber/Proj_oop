@@ -6,6 +6,7 @@
 #include "NewsFeed.h"
 #include "FriendService.h"
 #include "AuthenticationService.h"
+#include "PageManager.h"
 
 #include <iostream>
 #include <iomanip>
@@ -23,14 +24,16 @@ static void userSession(User* currentUser,
                         FriendService& friendService,
                         NotificationManager& notificationManager,
                         LikeManager& likeManager,
-                        CommentManager& commentManager);
+                        CommentManager& commentManager,
+                        PageManager& pageManager);
 
 static void showLoginMenu(AuthenticationService& authService,
                           PostManager& postManager,
                           FriendService& friendService,
                           NotificationManager& notificationManager,
                           LikeManager& likeManager,
-                          CommentManager& commentManager);
+                          CommentManager& commentManager,
+                          PageManager& pageManager);
 
 // ── Login Menu ────────────────────────────────────────────────────────────────
 
@@ -39,13 +42,14 @@ static void showLoginMenu(AuthenticationService& authService,
                           FriendService& friendService,
                           NotificationManager& notificationManager,
                           LikeManager& likeManager,
-                          CommentManager& commentManager)
+                          CommentManager& commentManager,
+                          PageManager& pageManager)
 {
     int choice = -1;
 
     while (choice != 0) {
         cout << "\n+======================================================+\n";
-        cout << "|              WELCOME TO FACEBOOK                     |\n";
+        cout << "|              WELCOME TO LocalO                         |\n";
         cout << "+======================================================+\n";
         cout << "|  1. Login                                            |\n";
         cout << "|  2. Create New Account                               |\n";
@@ -78,7 +82,7 @@ static void showLoginMenu(AuthenticationService& authService,
                     if (user) {
                         userSession(user, authService, postManager,
                                     friendService, notificationManager,
-                                    likeManager, commentManager);
+                                    likeManager, commentManager, pageManager);
                     }
                 }
                 break;
@@ -124,7 +128,8 @@ static void userSession(User* currentUser,
                         FriendService& friendService,
                         NotificationManager& notificationManager,
                         LikeManager& likeManager,
-                        CommentManager& commentManager)
+                        CommentManager& commentManager,
+                        PageManager& pageManager)
 {
     int choice = -1;
 
@@ -152,9 +157,10 @@ static void userSession(User* currentUser,
             case 1: {
                 NewsFeed newsFeed(currentUser, &postManager, &authService,
                                   &friendService, &notificationManager,
-                                  &likeManager, &commentManager);
+                                  &likeManager, &commentManager, &pageManager);
                 newsFeed.showNewsFeedMenu();
                 postManager.saveToFile("posts.txt");
+                pageManager.saveToFile(PageManager::PAGES_FILE);
                 break;
             }
 
@@ -279,6 +285,7 @@ int main() {
     PostManager postManager(500);
     LikeManager likeManager;
     CommentManager commentManager;
+    PageManager pageManager;
 
     NotificationManager notificationManager(&likeManager, &commentManager,
                                             &postManager, &authService, nullptr);
@@ -289,12 +296,16 @@ int main() {
     for (User& u : authService.getUsers()) usersForLoading.push_back(&u);
     postManager.loadFromFile("posts.txt", usersForLoading);
 
+    // Load pages
+    pageManager.loadFromFile(PageManager::PAGES_FILE, authService);
+
     showLoginMenu(authService, postManager, friendService,
-                  notificationManager, likeManager, commentManager);
+                  notificationManager, likeManager, commentManager, pageManager);
 
     postManager.saveToFile("posts.txt");
     likeManager.saveToFile("likes.txt");
     commentManager.saveToFile("comments.txt");
+    pageManager.saveToFile(PageManager::PAGES_FILE);
 
     return 0;
 }
