@@ -26,7 +26,7 @@ public:
 
     void addFriend(int friendUserId);
     bool hasFriend(int otherId) const;
-    void removeFriend(int friendUserId);  // ← NEW: remove/unfriend
+    void removeFriend(int friendUserId);  
 
     void printBasicInfo() const;
 
