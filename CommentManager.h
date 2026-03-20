@@ -1,18 +1,18 @@
+// Fixed CommentManager.h (include full Comment.h instead of forward decl)
 #ifndef COMMENTMANAGER_H
 #define COMMENTMANAGER_H
 
 #include <vector>
 #include <string>
 
-class Comment;
+#include "GenericManager.h"
+#include "Comment.h"  // Full include instead of forward decl
+
 class Post;
 class PostManager;
 class UserManager;
-
-class CommentManager {
-private:
-    std::vector<Comment*> comments; // owns these pointers
-
+class AuthenticationService;
+class CommentManager : public GenericManager<Comment> {
 public:
     CommentManager() = default;
     ~CommentManager();
@@ -30,9 +30,12 @@ public:
     void loadFromFile(const std::string& filename,
                       PostManager& postManager,
                       UserManager& userManager);
+    void loadFromFile(const std::string& filename,
+                  PostManager& postManager,
+                  AuthenticationService& authService);
 
     Comment* findCommentById(int id) const;
-    const std::vector<Comment*>& getAllComments() const;
+    const std::vector<Comment*>& getAllComments() const { return getItems(); }
 
     void clear();
 };
