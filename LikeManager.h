@@ -1,19 +1,19 @@
+// Fixed LikeManager.h (include full Like.h instead of forward decl)
 #ifndef LIKEMANAGER_H
 #define LIKEMANAGER_H
 
 #include <vector>
 #include <string>
 
-class Like;
+#include "GenericManager.h"
+#include "Like.h"  // Full include instead of forward decl
+
 class User;
 class Post;
 class PostManager;
 class UserManager;
-
-class LikeManager {
-private:
-    std::vector<Like*> likes; // owns these pointers
-
+class AuthenticationService;
+class LikeManager : public GenericManager<Like> {
 public:
     LikeManager() = default;
     ~LikeManager();
@@ -28,7 +28,7 @@ public:
     void removeLikesForPost(Post* post);
 
     Like* findLikeById(int id) const;
-    const std::vector<Like*>& getAllLikes() const;
+    const std::vector<Like*>& getAllLikes() const { return getItems(); }
 
     void clear();
 
@@ -38,6 +38,9 @@ public:
     void loadFromFile(const std::string& filename,
                       PostManager& postManager,
                       UserManager& userManager);
+    void loadFromFile(const std::string& filename,
+                  PostManager& postManager,
+                  AuthenticationService& authService);
 };
 
 #endif

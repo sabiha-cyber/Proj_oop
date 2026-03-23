@@ -5,7 +5,7 @@
 #include "User.h"
 #include "PostManager.h"
 #include "UserManager.h"
-
+#include "AuthenticationService.h"
 #include <fstream>
 
 using namespace std;
@@ -15,7 +15,7 @@ LikeManager::~LikeManager() {
 }
 
 void LikeManager::addLike(Like* like) {
-    if (like) likes.push_back(like);
+    if (like) addItem(like);
 }
 
 Like* LikeManager::createAndAdd(User* user, Post* post) {
@@ -23,19 +23,19 @@ Like* LikeManager::createAndAdd(User* user, Post* post) {
 
     // Uses Like::createLike which also attaches to Post
     Like* l = Like::createLike(user, post);
-    if (l) likes.push_back(l);
+    if (l) addItem(l);
     return l;
 }
 
 bool LikeManager::removeLike(User* user, Post* post) {
     if (!user || !post) return false;
 
-    for (auto it = likes.begin(); it != likes.end(); ++it) {
+    for (auto it = items.begin(); it != items.end(); ++it) {
         Like* l = *it;
         if (l && l->getUser() == user && l->getPost() == post) {
             post->removeLike(l); // detach first (prevents dangling Like* in Post)
             delete l;
-            likes.erase(it);
+            items.erase(it);
             return true;
         }
     }
@@ -45,12 +45,12 @@ bool LikeManager::removeLike(User* user, Post* post) {
 void LikeManager::removeLikesForPost(Post* post) {
     if (!post) return;
 
-    for (auto it = likes.begin(); it != likes.end(); ) {
+    for (auto it = items.begin(); it != items.end(); ) {
         Like* l = *it;
         if (l && l->getPost() == post) {
             post->removeLike(l); // detach first
             delete l;
-            it = likes.erase(it);
+            it = items.erase(it);
         } else {
             ++it;
         }
@@ -58,18 +58,14 @@ void LikeManager::removeLikesForPost(Post* post) {
 }
 
 Like* LikeManager::findLikeById(int id) const {
-    for (Like* l : likes) {
+    for (Like* l : items) {
         if (l && l->getLikeId() == id) return l;
     }
     return nullptr;
 }
 
-const vector<Like*>& LikeManager::getAllLikes() const {
-    return likes;
-}
-
 void LikeManager::clear() {
-    for (Like* l : likes) {
+    for (Like* l : items) {
         if (!l) continue;
 
         // detach if post still exists
@@ -79,7 +75,7 @@ void LikeManager::clear() {
 
         delete l;
     }
-    likes.clear();
+    items.clear();
 }
 
 // Format: likeId postId userId createdAt
@@ -87,7 +83,7 @@ void LikeManager::saveToFile(const string& filename) const {
     ofstream out(filename);
     if (!out) return;
 
-    for (const Like* l : likes) {
+    for (const Like* l : items) {
         if (!l || !l->getPost() || !l->getUser()) continue;
         if (l->getPost()->isDeletedPost()) continue;
 
@@ -129,6 +125,39 @@ void LikeManager::loadFromFile(const string& filename,
 
         Like* l = new Like(likeId, user, post, static_cast<time_t>(t));
         post->addLike(l);
-        likes.push_back(l);
+        addItem(l);
+    }
+}
+void LikeManager::loadFromFile(const std::string& filename,
+                               PostManager& postManager,
+                               AuthenticationService& authService){
+    std::ifstream in(filename);
+    if (!in) return;
+
+    clear();
+
+    int likeId, postId, userId;
+    long long t;
+
+    while (in >> likeId >> postId >> userId >> t) {
+        Post* post = postManager.findPostById(postId);
+        User* user = authService.findUserById(userId);
+
+        if (!post || !user) continue;
+        if (post->isDeletedPost()) continue;
+
+        // Prevent duplicate likes for same user+post
+        bool alreadyLiked = false;
+        for (Like* existing : post->getLikes()) {
+            if (existing && existing->getUser() == user) {
+                alreadyLiked = true;
+                break;
+            }
+        }
+        if (alreadyLiked) continue;
+
+        Like* l = new Like(likeId, user, post, static_cast<time_t>(t));
+        post->addLike(l);
+        addItem(l);
     }
 }
