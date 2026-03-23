@@ -9,6 +9,9 @@
 #include "AuthenticationService.h"
 #include "LikeManager.h"
 #include "CommentManager.h"
+#include "ContentItem.h"  // Added for ContentItem*
+
+class PageManager;
 class Post;
 class User;
 class PostManager;
@@ -27,10 +30,11 @@ private:
         double categoryBonus  = 1.5;
     };
 
-    std::vector<Post*> feed;
+    std::vector<ContentItem*> feed;  // Changed to ContentItem* (polymorphic)
     User* currentUser = nullptr;
-
-    PostManager* postManager = nullptr;
+    
+    PageManager* pageMgr = nullptr;
+    PostManager* postManager = nullptr; 
     AuthenticationService* authService = nullptr;
     FriendService* friendService = nullptr;
     NotificationManager* notifMgr = nullptr;
@@ -55,7 +59,8 @@ public:
          FriendService* fs,
          NotificationManager* nm,
          LikeManager* lm,
-         CommentManager* cm);
+         CommentManager* cm,
+         PageManager* pgm = nullptr);
 
     ~NewsFeed() = default;
 
@@ -68,6 +73,9 @@ public:
     void showTrendingCategories();
 
     void showNewsFeedMenu();
+
+    // Polymorphic demo (outputs remain the same)
+    void demoPolymorphism();
 };
 
 #endif

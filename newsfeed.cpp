@@ -14,14 +14,16 @@
 #include <cmath>
 #include <limits>
 #include "Like.h"
-
+#include "PageManager.h"
+#include "ContentItem.h"  // Added for ContentItem*
 using namespace std;
 
 NewsFeed::NewsFeed(User* user, PostManager* pm, AuthenticationService* auth,
                    FriendService* fs, NotificationManager* nm,
-                   LikeManager* lm, CommentManager* cm)
+                   LikeManager* lm, CommentManager* cm, PageManager* pgm)
     : currentUser(user), postManager(pm), authService(auth),
-      friendService(fs), notifMgr(nm), likeManager(lm), commentManager(cm) {}
+      friendService(fs), notifMgr(nm), likeManager(lm), commentManager(cm),
+      pageMgr(pgm) {}
 
 // ---------- scoring helpers ----------
 double NewsFeed::calculateScore(Post* post) {
@@ -64,7 +66,11 @@ double NewsFeed::calculateScore(Post* post) {
 double NewsFeed::getDiversityMultiplier(const string& category) {
     int sameCategory = 0;
     for (int i = 0; i < min(5, (int)feed.size()); i++) {
-        if (feed[i] && feed[i]->getCategory() == category) sameCategory++;
+        ContentItem* item = feed[i];
+        if (item) {
+            Post* post = static_cast<Post*>(item);  // Safe cast since all are Posts
+            if (post && post->getCategory() == category) sameCategory++;
+        }
     }
     return 1.0 / (1.0 + sameCategory * 0.2);
 }
@@ -90,27 +96,31 @@ void NewsFeed::collectPosts() {
         int authorId = post->getAuthor()->getUserId();
 
         if (authorId == currentUser->getUserId() || currentUser->hasFriend(authorId)) {
-            feed.push_back(post);
+            feed.push_back(post);  // Push as ContentItem* (implicit upcast)
         }
     }
 
     // optional: remove older than 7 days
     time_t cutoffTime = getCurrentTime() - (7 * 24 * 3600);
     feed.erase(remove_if(feed.begin(), feed.end(),
-                [cutoffTime](Post* p) {
-                    return !p || p->getCreationTime() < cutoffTime;
+                [cutoffTime](ContentItem* item) {
+                    if (!item) return true;
+                    Post* post = static_cast<Post*>(item);
+                    return post->getCreationTime() < cutoffTime;
                 }),
               feed.end());
 }
 
 void NewsFeed::applyDiversityFilter() {
-    vector<Post*> balanced;
+    vector<ContentItem*> balanced;
     string lastCategory;
     int categoryStreak = 0;
     User* lastAuthor = nullptr;
     int authorStreak = 0;
 
-    for (Post* post : feed) {
+    for (ContentItem* item : feed) {
+        if (!item) continue;
+        Post* post = static_cast<Post*>(item);  // Cast to access Post-specific
         if (!post || !post->getAuthor()) continue;
         bool skip = false;
 
@@ -132,7 +142,7 @@ void NewsFeed::applyDiversityFilter() {
             lastAuthor = post->getAuthor();
         }
 
-        if (!skip) balanced.push_back(post);
+        if (!skip) balanced.push_back(item);
     }
 
     feed = balanced;
@@ -143,7 +153,9 @@ void NewsFeed::generateFeed() {
     if (feed.empty()) return;
 
     sort(feed.begin(), feed.end(),
-         [this](Post* a, Post* b) {
+         [this](ContentItem* aItem, ContentItem* bItem) {
+            Post* a = static_cast<Post*>(aItem);
+            Post* b = static_cast<Post*>(bItem);
             return calculateScore(a) > calculateScore(b);
          });
 
@@ -168,7 +180,9 @@ void NewsFeed::display(int limit) {
     const size_t maxWidth = 47;
 
     for (int i = 0; i < min(limit, (int)feed.size()); i++) {
-        Post* post = feed[i];
+        ContentItem* item = feed[i];
+        if (!item) continue;
+        Post* post = static_cast<Post*>(item);  // Cast to Post*
         if (!post || !post->getAuthor()) continue;
 
         cout << "-- Post #" << (i + 1) << " -----------------------------------------\n";
@@ -199,8 +213,9 @@ void NewsFeed::displayByCategory(const string& category, int limit) {
     cout << "\n---------- Posts in '" << category << "' ----------\n\n";
 
     int count = 0;
-    for (Post* post : feed) {
-        if (!post) continue;
+    for (ContentItem* item : feed) {
+        if (!item) continue;
+        Post* post = static_cast<Post*>(item);
         if (post->getCategory() == category && count < limit) {
             post->viewPost();
             cout << "------------------------------------------\n";
@@ -231,8 +246,9 @@ string NewsFeed::getTimeAgo(time_t timestamp) {
 // ---------- analytics ----------
 map<string, int> NewsFeed::getCategoryDistribution() {
     map<string, int> distribution;
-    for (Post* post : feed) {
-        if (!post) continue;
+    for (ContentItem* item : feed) {
+        if (!item) continue;
+        Post* post = static_cast<Post*>(item);
         distribution[post->getCategory()]++;
     }
     return distribution;
@@ -260,6 +276,19 @@ void NewsFeed::showTrendingCategories() {
     cout << "----------------------------------------\n";
 }
 
+// Polymorphic demo (outputs remain the same)
+void NewsFeed::demoPolymorphism() {
+    std::vector<ContentItem*> mixed;
+    for (auto* item : feed) mixed.push_back(item);  // Posts
+
+    // Add a Comment example (hypothetical, doesn't change core)
+    // Comment* c = new Comment(...); mixed.push_back(c);
+
+    for (auto* item : mixed) {
+        item->display();  // Polymorphic call
+    }
+}
+
 // ---------- main menu ----------
 void NewsFeed::showNewsFeedMenu() {
     int choice = -1;
@@ -279,6 +308,7 @@ void NewsFeed::showNewsFeedMenu() {
         cout << "10. Friend menu\n";
         cout << "11. Like/Unlike a Post\n";
         cout << "12. Comment on a Post\n";
+        cout << "13. View Comments of a Post\n";
         cout << "0. Back\n";
         cout << "Choice: ";
 
@@ -324,9 +354,54 @@ void NewsFeed::showNewsFeedMenu() {
                 if (currentUser) currentUser->showMyPosts();
                 break;
 
-            case 5:
-                cout << "Pages feature coming soon!\n";
+            case 5: {
+                if (!pageMgr) { cout << "Pages not connected.\n"; break; }
+
+                int pageChoice = -1;
+                while (pageChoice != 0) {
+                    cout << "\n---------- PAGES MENU ----------\n";
+                    cout << "1. Browse All Pages\n";
+                    cout << "2. Create a Page\n";
+                    cout << "3. Open a Page\n";
+                    cout << "0. Back\n";
+                    cout << "Choice: ";
+                    cin >> pageChoice;
+
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                        pageChoice = -1; continue;
+                    }
+
+                    switch (pageChoice) {
+                        case 1:
+                            pageMgr->listAllPages();
+                            break;
+
+                        case 2: {
+                            string name, desc, cat;
+                            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                            cout << "Page name: ";      getline(cin, name);
+                            cout << "Description: ";   getline(cin, desc);
+                            cout << "Category: ";      getline(cin, cat);
+                            pageMgr->createPage(name, desc, cat, currentUser);
+                            break;
+                        }
+
+                        case 3: {
+                            pageMgr->listAllPages();
+                            cout << "Enter Page ID: ";
+                            int pid; cin >> pid;
+                            pageMgr->showPageMenu(pid, currentUser);
+                            break;
+                        }
+
+                        case 0: break;
+                        default: cout << "Invalid choice.\n";
+                    }
+                }
                 break;
+            }
 
             case 6:
                 if (notifMgr && currentUser) notifMgr->showInbox(currentUser->getUserId());
@@ -464,10 +539,12 @@ void NewsFeed::showNewsFeedMenu() {
                 if (feed.empty()) { cout << "No posts to like.\n"; break; }
 
                 for (int i = 0; i < min(10, (int)feed.size()); i++) {
-                    string preview = feed[i]->getText();
+                    ContentItem* item = feed[i];
+                    Post* post = static_cast<Post*>(item);
+                    string preview = post->getText();
                     if (preview.length() > 40) preview = preview.substr(0, 40) + "...";
-                    cout << "  " << i + 1 << ". @" << feed[i]->getAuthor()->getUsername()
-                        << ": " << preview << " [" << feed[i]->getLikeCount() << " likes]\n";
+                    cout << "  " << i + 1 << ". @" << post->getAuthor()->getUsername()
+                        << ": " << preview << " [" << post->getLikeCount() << " likes]\n";
                 }
 
                 int postNum;
@@ -475,7 +552,8 @@ void NewsFeed::showNewsFeedMenu() {
                 cin >> postNum;
                 if (postNum < 1 || postNum > (int)feed.size()) break;
 
-                Post* post = feed[postNum - 1];
+                ContentItem* item = feed[postNum - 1];
+                Post* post = static_cast<Post*>(item);
 
                 // Check if already liked by this user
                 bool alreadyLiked = false;
@@ -514,11 +592,13 @@ void NewsFeed::showNewsFeedMenu() {
                 if (feed.empty()) { cout << "No posts to comment on.\n"; break; }
 
                 for (int i = 0; i < min(10, (int)feed.size()); i++) {
-                    string preview = feed[i]->getText();
+                    ContentItem* item = feed[i];
+                    Post* post = static_cast<Post*>(item);
+                    string preview = post->getText();
                     if (preview.length() > 40) preview = preview.substr(0, 40) + "...";
-                    cout << "  " << i + 1 << ". @" << feed[i]->getAuthor()->getUsername()
+                    cout << "  " << i + 1 << ". @" << post->getAuthor()->getUsername()
                         << ": " << preview
-                        << " [" << feed[i]->getComments().size() << " comments]\n";
+                        << " [" << post->getComments().size() << " comments]\n";
                 }
 
                 int postNum;
@@ -526,7 +606,8 @@ void NewsFeed::showNewsFeedMenu() {
                 cin >> postNum;
                 if (postNum < 1 || postNum > (int)feed.size()) break;
 
-                Post* post = feed[postNum - 1];
+                ContentItem* item = feed[postNum - 1];
+                Post* post = static_cast<Post*>(item);
 
                 // Show existing comments
                 if (!post->getComments().empty()) {
@@ -566,6 +647,38 @@ void NewsFeed::showNewsFeedMenu() {
                     );
                 }
                 commentManager->saveToFile("comments.txt");
+                break;
+            }
+            case 13: {
+                generateFeed();
+                if (feed.empty()) { cout << "No posts.\n"; break; }
+
+                int shown = min(10, (int)feed.size());
+                for (int i = 0; i < shown; i++) {
+                    Post* post = static_cast<Post*>(feed[i]);
+                    string preview = post->getText();
+                    if (preview.length() > 40) preview = preview.substr(0, 40) + "...";
+
+                    cout << "  " << i + 1 << ". (PostID " << post->getPostId() << ") @"
+                        << post->getAuthor()->getUsername()
+                        << ": " << preview
+                        << " [" << post->getComments().size() << " comments]\n";
+                }
+
+                int postNum;
+                cout << "Choose post number to view comments (0 to cancel): ";
+                cin >> postNum;
+
+                if (postNum == 0) break;
+                if (postNum < 1 || postNum > shown) { cout << "Invalid choice.\n"; break; }
+
+                Post* post = static_cast<Post*>(feed[postNum - 1]);
+
+                cout << "\n--- Post ---\n";
+                post->viewPost();
+
+                cout << "\n--- Comments ---\n";
+                post->viewComments();  //from Post class
                 break;
             }
             case 0:
