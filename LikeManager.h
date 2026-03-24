@@ -1,4 +1,3 @@
-// Fixed LikeManager.h (include full Like.h instead of forward decl)
 #ifndef LIKEMANAGER_H
 #define LIKEMANAGER_H
 
