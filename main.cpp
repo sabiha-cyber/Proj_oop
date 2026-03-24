@@ -196,6 +196,7 @@ static void userSession(User* currentUser,
                             User* target = authService.findUserById(targetId);
                             if (!target) { cout << "User not found.\n"; break; }
                             friendService.sendFriendRequest(currentUser->getUserId(), target->getUsername());
+                            friendService.showPendingRequestsForUser(targetId);//for debugging
                             break;
                         }
 
@@ -295,7 +296,9 @@ int main() {
     vector<User*> usersForLoading;
     for (User& u : authService.getUsers()) usersForLoading.push_back(&u);
     postManager.loadFromFile("posts.txt", usersForLoading);
-
+    //Load like and comments
+    likeManager.loadFromFile("likes.txt", postManager, authService);
+    commentManager.loadFromFile("comments.txt", postManager, authService);
     // Load pages
     pageManager.loadFromFile(PageManager::PAGES_FILE, authService);
 
