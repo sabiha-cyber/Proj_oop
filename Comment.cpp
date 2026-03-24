@@ -2,164 +2,116 @@
 #include "User.h"
 #include "Post.h"
 #include "NotificationManager.h"
+
 #include <iostream>
 #include <iomanip>
 #include <limits>
 #include <ctime>
-#include <string>
 
-using namespace std;
-
-// Static member initialization
 int Comment::nextId = 1;
 
-// Constructor (normal creation: auto ID + current time)
-Comment::Comment(User* user, Post* postPtr, const string& content, size_t capacity,NotificationManager* notifMgr)
-    : commentId(nextId++),
-      author(user),
+Comment::Comment(User* user, Post* postPtr,
+                 const std::string& content, size_t capacity,
+                 NotificationManager* notifMgr)
+    : ContentItem(user, (content.length() <= capacity) ? content : content.substr(0, capacity)),
+      commentId(nextId++),
       post(postPtr),
-      maxCapacity(capacity),
-      isDeleted(false),
-      createdAt(time(nullptr))
+      maxCapacity(capacity)
 {
-    if (content.length() <= maxCapacity) {
-        text = content;
-    } else {
-        text = content.substr(0, maxCapacity);
-        cout << "Warning: Comment truncated to " << maxCapacity << " characters.\n";
+    if (content.length() > capacity) {
+        std::cout << "Warning: Comment truncated to " << capacity << " characters.\n";
     }
 
-    if (notifMgr && postPtr && postPtr->getAuthor() && postPtr->getAuthor() != user) {
+    // Notify post author (if different from commenter)
+    if (notifMgr && user && postPtr && postPtr->getAuthor() && postPtr->getAuthor() != user) {
         notifMgr->notifyComment(
-            postPtr->getAuthor()->getUserId(),  // recipient — real User*
-            user->getUserId(),                  // actor     — real User*
-            user->getUsername(),                // from real User object
-            postPtr->getPostId(),               // from real Post object
-            text.substr(0, 60)                  // snippet   — from real Comment text
+            postPtr->getAuthor()->getUserId(),
+            user->getUserId(),
+            user->getUsername(),
+            postPtr->getPostId(),
+            text.substr(0, 60)
         );
     }
 }
 
-// constructor (loading: fixed ID + fixed time + deleted state)
 Comment::Comment(int id, User* user, Post* postPtr,
-                 const string& content, size_t capacity,
+                 const std::string& content, size_t capacity,
                  time_t created, bool deleted)
-    : commentId(id),
-      author(user),
+    : ContentItem(user, (content.length() <= capacity) ? content : content.substr(0, capacity)),
+      commentId(id),
       post(postPtr),
-      maxCapacity(capacity),
-      isDeleted(deleted),
-      createdAt(created)
+      maxCapacity(capacity)
 {
-    // Keep nextId correct so future new comments don't reuse existing IDs
-    if (id >= nextId) {
-        nextId = id + 1;
-    }
+    if (id >= nextId) nextId = id + 1;
 
-    // Store text (respect capacity)
-    if (content.length() <= maxCapacity) {
-        text = content;
-    } else {
-        text = content.substr(0, maxCapacity);
-    }
-
-    // If deleted, match your deleteComment() behavior so Post::viewComments shows it correctly
-    if (isDeleted) {
-        text = "[This comment has been deleted]";
-    }
+    createdAt = created;
+    isDeleted = deleted;
 }
 
-// Interactive creation
-Comment* Comment::createComment(User* user, Post* postPtr, size_t capacity,NotificationManager* notifMgr) {
-    if (!user || !postPtr) {
-        cout << "Error: Invalid user or post.\n";
-        return nullptr;
-    }
+Comment* Comment::createComment(User* user, Post* postPtr, size_t capacity, NotificationManager* notifMgr)
+{
+    if (!user || !postPtr) return nullptr;
 
-    string content;
+    std::cout << "Enter comment text (max " << capacity << " characters): ";
 
-    cout << "\n--- Add Comment ---\n";
-    cout << "Enter comment (max " << capacity << " characters):\n";
+    // In case previous reads left a newline in the buffer
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    // Clear leftover newline from menu choice
-    cin.ignore(numeric_limits<streamsize>::max(), '\n');
-    getline(cin, content);
+    std::string content;
+    std::getline(std::cin, content);
 
-    // Basic trim
-    size_t first = content.find_first_not_of(" \t\n\r\f\v");
-    if (first == string::npos) {
-        cout << "Comment cannot be empty. Cancelled.\n";
-        return nullptr;
-    }
-    size_t last = content.find_last_not_of(" \t\n\r\f\v");
-    content = content.substr(first, (last - first + 1));
-
-    if (content.length() > capacity) {
-        cout << "Warning: Comment truncated to " << capacity << " characters.\n";
-        content = content.substr(0, capacity);
-    }
-
-    Comment* newComment = new Comment(user, postPtr, content, capacity);
-    postPtr->addComment(newComment);
-    cout << "Comment added successfully! (ID: " << newComment->getCommentId() << ")\n";
-
-    return newComment;
+    return new Comment(user, postPtr, content, capacity, notifMgr);
 }
 
-// Edit comment
-void Comment::editComment(const string& newText) {
-    if (isDeleted) {
-        cout << "Cannot edit a deleted comment.\n";
+void Comment::edit(const std::string& newText)
+{
+    if (isDeletedItem()) {
+        std::cout << "Cannot edit a deleted comment.\n";
         return;
     }
 
     if (newText.length() <= maxCapacity) {
         text = newText;
-        cout << "Comment updated.\n";
+        std::cout << "Comment updated.\n";
     } else {
-        cout << "Error: Text exceeds max capacity (" << maxCapacity << " characters).\n";
+        std::cout << "Error: Text exceeds max capacity (" << maxCapacity << " characters).\n";
     }
 }
 
-// Deletion
-void Comment::deleteComment() {
-    if (isDeleted) {
-        cout << "Comment already deleted.\n";
-        return;
-    }
-
-    isDeleted = true;
-    text = "[This comment has been deleted]";
-    cout << "Comment #" << commentId << " deleted.\n";
+void Comment::display() const
+{
+    viewComment();
 }
 
-// Display comment
-void Comment::viewComment() const {
-    if (isDeleted) {
-        cout << "[Deleted comment]\n";
+void Comment::deleteComment()
+{
+    deleteItem();
+    std::cout << "Comment #" << commentId << " deleted.\n";
+}
+
+void Comment::viewComment() const
+{
+    if (isDeletedItem()) {
+        std::cout << "[Deleted comment]\n";
         return;
     }
 
     if (!author) {
-        cout << "Unknown user: " << text << "\n";
+        std::cout << "Unknown user: " << text << "\n";
         return;
     }
 
-    tm* timeinfo = localtime(&createdAt);
-    char buffer[64];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+    std::tm* timeinfo = std::localtime(&createdAt);
+    char buffer[64] = "Unknown time";
 
-    cout << left << setw(15) << author->getUsername() << ": "
-         << text << "  (" << buffer << ")\n";
+    if (timeinfo) {
+        std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+    }
+
+    std::cout << std::left << std::setw(15) << author->getUsername()
+              << ": " << text << "  (" << buffer << ")\n";
 }
 
-// Getters
-int     Comment::getCommentId()     const { return commentId; }
-User*   Comment::getAuthor()        const { return author; }
-Post*   Comment::getPost()          const { return post; }
-string  Comment::getText()          const { return text; }
-time_t  Comment::getCreationTime()  const { return createdAt; }
-bool    Comment::isDeletedComment() const { return isDeleted; }
-size_t  Comment::getMaxCapacity()   const { return maxCapacity; }
-
-
+int Comment::getCommentId() const { return commentId; }
+Post* Comment::getPost() const { return post; }
+size_t Comment::getMaxCapacity() const { return maxCapacity; }

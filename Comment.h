@@ -5,49 +5,41 @@
 #include <cstddef>
 #include <ctime>
 
+#include "ContentItem.h"
+
 class User;
 class Post;
 class NotificationManager;
 
-class Comment {
+class Comment : public ContentItem {
 private:
     static int nextId;
 
     int commentId;
-    User* author;
     Post* post;
-
-    std::string text;
     size_t maxCapacity;
-    bool isDeleted;
-    time_t createdAt;
 
 public:
-    // Existing constructor (normal creation: auto ID + auto time)
-    Comment(User* user, Post* postPtr, const std::string& content, size_t capacity,NotificationManager* notifMgr = nullptr);
-
-    //constructor (loading: fixed ID + fixed time + deleted state)
+    Comment(User* user, Post* postPtr, const std::string& content, size_t capacity, NotificationManager* notifMgr = nullptr);
     Comment(int id, User* user, Post* postPtr,
             const std::string& content, size_t capacity,
             time_t created, bool deleted);
 
-    static Comment* createComment(User* user, Post* postPtr, size_t capacity,NotificationManager* notifMgr = nullptr);
+    static Comment* createComment(User* user, Post* postPtr, size_t capacity, NotificationManager* notifMgr = nullptr);
 
-    void editComment(const std::string& newText);
+    void edit(const std::string& newText) override;
     void deleteComment();
-    void viewComment() const;
+    void display() const override;
 
-    // Getters
     int getCommentId() const;
-    User* getAuthor() const;
+    User* getAuthor() const { return author; }
     Post* getPost() const;
-    std::string getText() const;
-    time_t getCreationTime() const;
-    bool isDeletedComment() const;
+    std::string getText() const { return text; }
+    time_t getCreationTime() const { return createdAt; }
+    bool isDeletedComment() const { return isDeletedItem(); }
     size_t getMaxCapacity() const;
+
+    void viewComment() const;  // Ensure const here
 };
 
 #endif
-
-
-
