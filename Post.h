@@ -1,4 +1,4 @@
-// Fixed Post.h (remove inline body for deletePost)
+
 #ifndef POST_H
 #define POST_H
 
