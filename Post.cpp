@@ -2,181 +2,198 @@
 #include "User.h"
 #include "Like.h"
 #include "Comment.h"
-
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
 #include <limits>
-
+#include <ctime>
+#include <string>
+#include <ostream>
 using namespace std;
 
 // Constructor
 Post::Post(int id, User* user, const string& content, size_t capacity, const string& cat)
-    : postId(id),
-      author(user),
-      maxCapacity(capacity),
-      isDeleted(false),
-      shareCount(0),
-      createdAt(time(nullptr)),
-      category(cat)
+    : ContentItem(user, content.length() <= capacity ? content : content.substr(0, capacity)),
+      postId(id), maxCapacity(capacity), shareCount(0), category(cat)
 {
-    if (content.length() <= maxCapacity) {
-        text = content;
-    } else {
-        text = content.substr(0, maxCapacity);
-        cout << "Warning: Post content truncated to " << maxCapacity << " characters." << endl;
+    if (content.length() > capacity) {
+        cout << "Warning: Post content truncated to " << capacity << " characters.\n";
     }
 }
 
-// Factory-style creation
-Post* Post::createPost(int id, User* user, size_t capacity, const string& cat) {
+//Interactive creation
+Post* Post::createPost(int id, User* user, size_t capacity, const string& defaultCat) {
     string content;
-
-    cout << "Enter post content (max " << capacity << " characters):" << endl;
-
+    string cat;
+    cout << "\n--- Create New Post ---\n";
+    // Clear any leftover input from previous menu choice
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    // Get content
+    cout << "Enter post content (max " << capacity << " characters):\n";
     getline(cin, content);
-
+    // Basic validation & trimming
+    size_t first = content.find_first_not_of(" \t\n\r\f\v");
+    if (first == string::npos) {
+        cout << "Error: Post content cannot be empty. Creation cancelled.\n";
+        return nullptr;
+    }
+    size_t last = content.find_last_not_of(" \t\n\r\f\v");
+    content = content.substr(first, (last - first + 1));
     if (content.length() > capacity) {
-        cout << "Warning: Post truncated to " << capacity << " characters." << endl;
+        cout << "Warning: Content truncated to " << capacity << " characters.\n";
         content = content.substr(0, capacity);
     }
-
+    // Get category
+    cout << "\nEnter category (press Enter for default '" << defaultCat << "'): ";
+    getline(cin, cat);
+    // Trim category
+    first = cat.find_first_not_of(" \t\n\r\f\v");
+    if (first == string::npos) {
+        cat = defaultCat;
+    } else {
+        last = cat.find_last_not_of(" \t\n\r\f\v");
+        cat = cat.substr(first, (last - first + 1));
+    }
     Post* newPost = new Post(id, user, content, capacity, cat);
-    cout << "Post created successfully!" << endl;
+    cout << "Post created successfully! (ID: " << id << ")\n";
     return newPost;
 }
 
 // Edit post
-void Post::editPost(const string& newText) {
-    if (isDeleted) {
-        cout << "Cannot edit a deleted post." << endl;
+void Post::edit(const string& newText) {
+    if (isDeletedItem()) {
+        cout << "Cannot edit a deleted post.\n";
         return;
     }
-
     if (newText.length() <= maxCapacity) {
         text = newText;
-        cout << "Post updated." << endl;
+        cout << "Post updated successfully.\n";
     } else {
-        cout << "Error: New text exceeds maximum capacity of " << maxCapacity << " characters." << endl;
+        cout << "Error: New text exceeds maximum capacity ("
+             << maxCapacity << " characters).\n";
     }
 }
 
-// Delete post
-void Post::deletePost() {
-    if (isDeleted) {
-        cout << "Post already deleted." << endl;
-        return;
-    }
+// Display override
+void Post::display() const {
+    viewPost();  // Reuse
+}
 
-    isDeleted = true;
-    text = "[This post has been deleted]";
+// Delete (call base)
+void Post::deletePost() {
+    deleteItem();
     likes.clear();
     comments.clear();
     shareCount = 0;
-
-    cout << "Post " << postId << " deleted." << endl;
+    cout << "Post #" << postId << " has been deleted.\n";
 }
 
 // View post
-void Post::viewPost() const {
-    if (isDeleted) {
-        cout << "This post has been deleted." << endl;
-        return;
+std::ostream& operator<<(std::ostream& os, const Post& p){
+    if (p.isDeletedItem()) {
+        os << "This post has been deleted.\n";
+        return os;
     }
 
-    cout << left << setw(14) << "Author:" << author->getUsername() << "\n"
-         << left << setw(14) << "Category:" << category << "\n"
-         << left << setw(14) << "Content:" << text << "\n"
-         << left << setw(14) << "Likes:" << getLikeCount()
-         << setw(14) << "Comments:" << comments.size()
-         << setw(14) << "Shares:" << shareCount << "\n";
+    os << std::left << std::setw(14) << "Author:"
+       << (p.getAuthor() ? p.getAuthor()->getUsername() : "Unknown") << "\n"
+       << std::left << std::setw(14) << "Category:" << p.getCategory() << "\n"
+       << std::left << std::setw(14) << "Content:" << p.getText() << "\n"
+       << std::left << std::setw(14) << "Likes:" << p.getLikeCount()
+       << std::setw(14) << "Comments:" << p.getComments().size()
+       << std::setw(14) << "Shares:" << p.getShareCount() << "\n";
 
-    tm* timeinfo = localtime(&createdAt);
+    std::time_t t = p.getCreationTime();
+    std::tm* timeinfo = std::localtime(&t);
     char buffer[64];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+    os << std::left << std::setw(14) << "Created:" << buffer << "\n";
 
-    cout << left << setw(14) << "Created:" << buffer << endl;
+    return os;
 }
-
-// Likes
+void Post::viewPost() const {
+    std::cout << *this;
+}
+// Like management
 void Post::addLike(Like* like) {
-    if (!isDeleted) likes.push_back(like);
+    if (!isDeletedItem() && like != nullptr) {
+        likes.push_back(like);
+    }
 }
-
 void Post::removeLike(Like* like) {
-    if (isDeleted) return;
-
+    if (isDeletedItem() || like == nullptr) {
+        return;
+    }
     auto it = find(likes.begin(), likes.end(), like);
-    if (it != likes.end()) likes.erase(it);
+    if (it != likes.end()) {
+        likes.erase(it);
+    }
 }
-
 int Post::getLikeCount() const {
-    return isDeleted ? 0 : static_cast<int>(likes.size());
+    return isDeletedItem() ? 0 : static_cast<int>(likes.size());
 }
-
+const vector<Like*>& Post::getLikes() const {
+    return likes;
+}
 void Post::viewLikes() const {
-    if (isDeleted) {
-        cout << "Cannot view likes of a deleted post." << endl;
+    if (isDeletedItem()) {
+        cout << "Cannot view likes – post is deleted.\n";
         return;
     }
-
     if (likes.empty()) {
-        cout << "No likes yet." << endl;
+        cout << "No likes yet.\n";
         return;
     }
-
     cout << "Likes (" << likes.size() << "):\n";
     for (const Like* l : likes) {
-        cout << "  - " << l->getUser()->getUsername() << endl;
+        if (l && l->getUser()) {
+            cout << " - " << l->getUser()->getUsername() << "\n";
+        }
     }
 }
-
-// Comments
+// Comment management
 void Post::addComment(Comment* comment) {
-    if (!isDeleted) comments.push_back(comment);
+    if (!isDeletedItem() && comment != nullptr) {
+        comments.push_back(comment);
+    }
 }
-
 void Post::viewComments() const {
-    if (isDeleted) {
-        cout << "Cannot view comments of a deleted post." << endl;
+    if (isDeletedItem()) {
+        cout << "Cannot view comments – post is deleted.\n";
         return;
     }
-
     if (comments.empty()) {
-        cout << "No comments yet." << endl;
+        cout << "No comments yet.\n";
         return;
     }
-
     cout << "Comments (" << comments.size() << "):\n";
     for (const Comment* c : comments) {
-        cout << "  " << left << setw(15)
-             << c->getAuthor()->getUsername() << ": "
-             << c->getText() << "\n";
+        if (c && c->getAuthor()) {
+            cout << " " << left << setw(15)
+                 << c->getAuthor()->getUsername() << ": "
+                 << c->getText() << "\n";
+        }
     }
 }
-
 const vector<Comment*>& Post::getComments() const {
     return comments;
 }
-
+void Post::removeCommentPointer(Comment* c) {
+    if (!c) return;
+    auto it = std::find(comments.begin(), comments.end(), c);
+    if (it != comments.end()) {
+        comments.erase(it);
+    }
+}
 // Share
 void Post::sharePost() {
-    if (!isDeleted) ++shareCount;
+    if (!isDeletedItem()) {
+        ++shareCount;
+    }
 }
-
-// Getters
+// Getters & setters
 int Post::getPostId() const { return postId; }
-User* Post::getAuthor() const { return author; }
-string Post::getText() const { return text; }
 int Post::getShareCount() const { return shareCount; }
 size_t Post::getMaxCapacity() const { return maxCapacity; }
-bool Post::isDeletedPost() const { return isDeleted; }
-time_t Post::getCreationTime() const { return createdAt; }
-
-//Category added
 string Post::getCategory() const { return category; }
 void Post::setCategory(const string& cat) { category = cat; }
-
-
-
