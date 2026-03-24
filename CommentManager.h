@@ -1,4 +1,3 @@
-// Fixed CommentManager.h (include full Comment.h instead of forward decl)
 #ifndef COMMENTMANAGER_H
 #define COMMENTMANAGER_H
 
@@ -6,7 +5,7 @@
 #include <string>
 
 #include "GenericManager.h"
-#include "Comment.h"  // Full include instead of forward decl
+#include "Comment.h"  
 
 class Post;
 class PostManager;
