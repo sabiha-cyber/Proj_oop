@@ -34,5 +34,5 @@ public:
     const std::vector<Post*>& getPosts() const;
     void                showMyPosts() const;
 };
-
+std::ostream& operator<<(std::ostream& os, const User& user);
 #endif
