@@ -1,5 +1,5 @@
 #include "User.h"
-#include "Post.h"           // needed for Post*
+#include "Post.h"           
 
 #include <iostream>
 #include <algorithm>
@@ -36,15 +36,13 @@ bool User::hasFriend(int otherId) const {
     return std::find(friendIds.begin(), friendIds.end(), otherId) != friendIds.end();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NEW: Remove friend (unfriend)
-// ─────────────────────────────────────────────────────────────────────────────
+
 void User::removeFriend(int friendUserId) {
     auto it = std::find(friendIds.begin(), friendIds.end(), friendUserId);
     if (it != friendIds.end()) {
         friendIds.erase(it);
     }
-    // Note: we don't print anything here — printing is handled in FriendService
+    
 }
 
 void User::printBasicInfo() const {
@@ -78,4 +76,12 @@ void User::showMyPosts() const {
             std::cout << "----------------------------------------\n";
         }
     }
+}
+
+std::ostream& operator<<(std::ostream& os, const User& user)
+{
+    os << "User ID: "   << user.getUserId()
+       << " | Username: " << user.getUsername()
+       << " | Friends: "  << user.getFriendIds().size();
+    return os;
 }
