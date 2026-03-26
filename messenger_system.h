@@ -1,14 +1,14 @@
 #ifndef MESSENGER_SYSTEM_H
 #define MESSENGER_SYSTEM_H
 
+#include "SocialExceptions.h"
+
 #include <string>
 #include <vector>
-#include <map>
 #include <memory>
 #include <ctime>
 #include <algorithm>
 #include <iostream>
-#include <fstream>
 #include <sstream>
 
 using namespace std;
@@ -22,41 +22,63 @@ enum class MessageStatus {
 
 // Forward declarations
 class Message;
+class Chat;
 class Conversation;
 class GroupChat;
+
+// ============================================================================
+// TEMPLATE UTILITY
+// Search any vector<shared_ptr<T>> by a string key extracted via a lambda.
+// Usage:  findByKey<Message>(messages, [](auto m){ return m->getMessageId(); }, id)
+// ============================================================================
+template <typename T, typename KeyFn>
+shared_ptr<T> findByKey(const vector<shared_ptr<T>>& vec,
+                        KeyFn keyFn,
+                        const string& target) {
+    for (const auto& item : vec)
+        if (keyFn(item) == target) return item;
+    return nullptr;
+}
 
 // ============================================================================
 // MESSAGE CLASS
 // ============================================================================
 class Message {
 private:
-    string messageId;
-    string senderId;
-    string content;
-    time_t timestamp;
-    vector<string> likes;  // List of user IDs who liked the message
-    MessageStatus status;
+    string         messageId;
+    string         senderId;
+    string         content;
+    time_t         timestamp;
+    vector<string> likes;
+    MessageStatus  status;
 
 public:
-    // Constructor
+    // ── Constructor ───────────────────────────────────────────────────────────
     Message(const string& msgId, const string& sender, const string& cont)
-        : messageId(msgId), senderId(sender), content(cont), 
-          timestamp(time(nullptr)), status(MessageStatus::SENT) {}
+        : messageId(msgId), senderId(sender), content(cont),
+          timestamp(time(nullptr)), status(MessageStatus::SENT) {
+        if (cont.empty())
+            throw InvalidContentException("Message content cannot be empty.");
+    }
 
-    // Getters
-    string getMessageId() const { return messageId; }
-    string getSenderId() const { return senderId; }
-    string getContent() const { return content; }
-    time_t getTimestamp() const { return timestamp; }
-    vector<string> getLikes() const { return likes; }
-    MessageStatus getStatus() const { return status; }
+    // ── Copy constructor & copy-assignment (explicit, rule of three) ──────────
+    Message(const Message& other) = default;
+    Message& operator=(const Message& other) = default;
 
-    // Setters
-    void setStatus(MessageStatus s) { status = s; }
-    void setContent(const string& cont) { content = cont; }
-    void setTimestamp(time_t t) { timestamp = t; }
+    // ── Getters ───────────────────────────────────────────────────────────────
+    string         getMessageId() const { return messageId; }
+    string         getSenderId()  const { return senderId;  }
+    string         getContent()   const { return content;   }
+    time_t         getTimestamp() const { return timestamp; }
+    vector<string> getLikes()     const { return likes;     }
+    MessageStatus  getStatus()    const { return status;    }
 
-    // Like functionality
+    // ── Setters ───────────────────────────────────────────────────────────────
+    void setStatus(MessageStatus s)      { status  = s;    }
+    void setContent(const string& cont)  { content = cont; }
+    void setTimestamp(time_t t)          { timestamp = t;  }
+
+    // ── Like functionality ────────────────────────────────────────────────────
     bool addLike(const string& userId) {
         if (find(likes.begin(), likes.end(), userId) == likes.end()) {
             likes.push_back(userId);
@@ -67,32 +89,45 @@ public:
 
     bool removeLike(const string& userId) {
         auto it = find(likes.begin(), likes.end(), userId);
-        if (it != likes.end()) {
-            likes.erase(it);
-            return true;
-        }
+        if (it != likes.end()) { likes.erase(it); return true; }
         return false;
     }
 
-    int getLikeCount() const {
-        return likes.size();
+    int getLikeCount() const { return static_cast<int>(likes.size()); }
+
+    // ── Operator overloads ────────────────────────────────────────────────────
+
+    // Equality — compare by message ID
+    bool operator==(const Message& other) const {
+        return messageId == other.messageId;
     }
 
-    // Display
-    void display() const {
-        cout << "From: " << senderId << endl;
-        cout << "Message: " << content << endl;
-        cout << "Likes: " << likes.size() << endl;
-        cout << "Time: " << ctime(&timestamp);
+    bool operator!=(const Message& other) const {
+        return !(*this == other);
     }
 
-    // Serialization
+    // Less-than — order by timestamp (enables sorting)
+    bool operator<(const Message& other) const {
+        return timestamp < other.timestamp;
+    }
+
+    // Stream output — replaces display()
+    friend ostream& operator<<(ostream& os, const Message& m) {
+        os << "From: "    << m.senderId << "\n"
+           << "Message: " << m.content  << "\n"
+           << "Likes: "   << m.likes.size() << "\n"
+           << "Time: "    << ctime(&m.timestamp);
+        return os;
+    }
+
+    // ── Display (delegates to operator<<) ────────────────────────────────────
+    void display() const { cout << *this; }
+
+    // ── Serialization ─────────────────────────────────────────────────────────
     string toCSV() const {
         stringstream ss;
-        ss << messageId << "," << senderId << "," << content << "," 
+        ss << messageId << "," << senderId << "," << content << ","
            << timestamp << "," << static_cast<int>(status) << ",";
-        
-        // Add likes (separated by semicolons)
         for (size_t i = 0; i < likes.size(); i++) {
             ss << likes[i];
             if (i < likes.size() - 1) ss << ";";
@@ -105,47 +140,73 @@ public:
         string msgId, sender, cont, likesStr;
         time_t ts;
         int statusInt;
-        
-        getline(ss, msgId, ',');
-        getline(ss, sender, ',');
-        getline(ss, cont, ',');
-        ss >> ts;
-        ss.ignore();
-        ss >> statusInt;
-        ss.ignore();
+
+        getline(ss, msgId,   ',');
+        getline(ss, sender,  ',');
+        getline(ss, cont,    ',');
+        ss >> ts;       ss.ignore();
+        ss >> statusInt; ss.ignore();
         getline(ss, likesStr);
 
         Message msg(msgId, sender, cont);
         msg.timestamp = ts;
-        msg.status = static_cast<MessageStatus>(statusInt);
+        msg.status    = static_cast<MessageStatus>(statusInt);
 
-        // Parse likes
         if (!likesStr.empty()) {
             stringstream likeSS(likesStr);
             string userId;
-            while (getline(likeSS, userId, ';')) {
-                if (!userId.empty()) {
-                    msg.likes.push_back(userId);
-                }
-            }
+            while (getline(likeSS, userId, ';'))
+                if (!userId.empty()) msg.likes.push_back(userId);
         }
-
         return msg;
     }
 };
 
 // ============================================================================
-// CONVERSATION CLASS (One-on-one chat)
+// ABSTRACT BASE CLASS — Chat
+// Defines the interface shared by Conversation and GroupChat.
+// Pure virtual functions make this class abstract (cannot be instantiated).
 // ============================================================================
-class Conversation {
+class Chat {
+public:
+    virtual ~Chat() = default;
+
+    // ── Pure virtual interface (must be overridden) ───────────────────────────
+    virtual string                        getChatId()        const = 0;
+    virtual bool                          isParticipant(const string& userId) const = 0;
+    virtual bool                          addMessage(shared_ptr<Message> msg)  = 0;
+    virtual vector<shared_ptr<Message>>   getMessages()      const = 0;
+    virtual shared_ptr<Message>           findMessage(const string& msgId)     = 0;
+    virtual int                           getMessageCount()  const = 0;
+    virtual void                          display()          const = 0;
+
+    // ── Concrete helper available to all subclasses ───────────────────────────
+    // Returns the N most recent messages (or all if limit < 0).
+    vector<shared_ptr<Message>> getRecentMessages(int limit = -1) const {
+        auto msgs = getMessages();
+        if (limit < 0 || limit >= static_cast<int>(msgs.size())) return msgs;
+        return vector<shared_ptr<Message>>(msgs.end() - limit, msgs.end());
+    }
+
+    // ── Operator overload ─────────────────────────────────────────────────────
+    // Two chats are equal if they share the same ID.
+    bool operator==(const Chat& other) const {
+        return getChatId() == other.getChatId();
+    }
+    bool operator!=(const Chat& other) const { return !(*this == other); }
+};
+
+// ============================================================================
+// CONVERSATION CLASS  (inherits from Chat — one-on-one)
+// ============================================================================
+class Conversation : public Chat {
 private:
-    string conversationId;
-    vector<string> participantIds;  // Exactly 2 participants
+    string                      conversationId;
+    vector<string>              participantIds;   // exactly 2
     vector<shared_ptr<Message>> messages;
-    time_t createdAt;
+    time_t                      createdAt;
 
 public:
-    // Constructor
     Conversation(const string& convId, const string& user1, const string& user2)
         : conversationId(convId), createdAt(time(nullptr)) {
         participantIds.push_back(user1);
@@ -153,172 +214,91 @@ public:
         sort(participantIds.begin(), participantIds.end());
     }
 
-    // Getters
-    string getConversationId() const { return conversationId; }
-    vector<string> getParticipantIds() const { return participantIds; }
-    vector<shared_ptr<Message>> getMessages() const { return messages; }
-    time_t getCreatedAt() const { return createdAt; }
+    // ── Chat interface (polymorphic overrides) ────────────────────────────────
+    string getChatId() const override { return conversationId; }
 
-    // Check if user is participant
-    bool isParticipant(const string& userId) const {
-        return find(participantIds.begin(), participantIds.end(), userId) != participantIds.end();
+    bool isParticipant(const string& userId) const override {
+        return find(participantIds.begin(), participantIds.end(), userId)
+               != participantIds.end();
     }
 
-    // Add message
-    bool addMessage(shared_ptr<Message> message) {
-        if (!isParticipant(message->getSenderId())) {
-            return false;
-        }
+    bool addMessage(shared_ptr<Message> message) override {
+        if (!isParticipant(message->getSenderId())) return false;
         messages.push_back(message);
         return true;
     }
 
-    // Get recent messages
-    vector<shared_ptr<Message>> getRecentMessages(int limit = -1) const {
-        if (limit < 0 || limit > static_cast<int>(messages.size())) {
-            return messages;
-        }
-        
-        vector<shared_ptr<Message>> recent;
-        int start = messages.size() - limit;
-        for (size_t i = start; i < messages.size(); i++) {
-            recent.push_back(messages[i]);
-        }
-        return recent;
+    vector<shared_ptr<Message>> getMessages() const override { return messages; }
+
+    shared_ptr<Message> findMessage(const string& messageId) override {
+        // Uses the template utility
+        return findByKey<Message>(messages,
+            [](const shared_ptr<Message>& m){ return m->getMessageId(); },
+            messageId);
     }
 
-    // Find message by ID
-    shared_ptr<Message> findMessage(const string& messageId) {
-        for (auto& msg : messages) {
-            if (msg->getMessageId() == messageId) {
-                return msg;
-            }
-        }
-        return nullptr;
-    }
+    int  getMessageCount() const override { return static_cast<int>(messages.size()); }
 
-    // Display conversation
-    void display() const {
+    void display() const override {
         cout << "\n=== Conversation: " << conversationId << " ===" << endl;
         cout << "Participants: " << participantIds[0] << " <-> " << participantIds[1] << endl;
         cout << "Messages: " << messages.size() << endl;
         cout << "Created: " << ctime(&createdAt);
-        
-        for (const auto& msg : messages) {
-            cout << "\n---" << endl;
-            msg->display();
-        }
+        for (const auto& msg : messages) { cout << "\n---" << endl; msg->display(); }
     }
 
-    // Get message count
-    int getMessageCount() const {
-        return messages.size();
-    }
+    // ── Conversation-specific getters ─────────────────────────────────────────
+    string         getConversationId()  const { return conversationId; }
+    vector<string> getParticipantIds()  const { return participantIds; }
+    time_t         getCreatedAt()       const { return createdAt;      }
 };
 
 // ============================================================================
-// GROUP CHAT CLASS
+// GROUP CHAT CLASS  (inherits from Chat)
 // ============================================================================
-class GroupChat {
+class GroupChat : public Chat {
 private:
-    string groupId;
-    string groupName;
-    string adminId;
-    vector<string> participantIds;
+    string                      groupId;
+    string                      groupName;
+    string                      adminId;
+    vector<string>              participantIds;
     vector<shared_ptr<Message>> messages;
-    time_t createdAt;
+    time_t                      createdAt;
 
 public:
-    // Constructor
     GroupChat(const string& grpId, const string& name, const string& admin)
         : groupId(grpId), groupName(name), adminId(admin), createdAt(time(nullptr)) {
         participantIds.push_back(admin);
     }
 
-    // Getters
-    string getGroupId() const { return groupId; }
-    string getGroupName() const { return groupName; }
-    string getAdminId() const { return adminId; }
-    vector<string> getParticipantIds() const { return participantIds; }
-    vector<shared_ptr<Message>> getMessages() const { return messages; }
-    time_t getCreatedAt() const { return createdAt; }
+    // ── Chat interface (polymorphic overrides) ────────────────────────────────
+    string getChatId() const override { return groupId; }
 
-    // Setters
-    void setGroupName(const string& name) { groupName = name; }
-
-    // Check if user is participant
-    bool isParticipant(const string& userId) const {
-        return find(participantIds.begin(), participantIds.end(), userId) != participantIds.end();
+    bool isParticipant(const string& userId) const override {
+        return find(participantIds.begin(), participantIds.end(), userId)
+               != participantIds.end();
     }
 
-    // Check if user is admin
-    bool isAdmin(const string& userId) const {
-        return userId == adminId;
-    }
-
-    // Add participant (only admin can add)
-    bool addParticipant(const string& userId, const string& addedBy) {
-        if (!isAdmin(addedBy)) {
-            return false;
-        }
-        if (!isParticipant(userId)) {
-            participantIds.push_back(userId);
-            return true;
-        }
-        return false;
-    }
-
-    // Remove participant (only admin can remove, cannot remove admin)
-    bool removeParticipant(const string& userId, const string& removedBy) {
-        if (!isAdmin(removedBy) || userId == adminId) {
-            return false;
-        }
-        auto it = find(participantIds.begin(), participantIds.end(), userId);
-        if (it != participantIds.end()) {
-            participantIds.erase(it);
-            return true;
-        }
-        return false;
-    }
-
-    // Add message
-    bool addMessage(shared_ptr<Message> message) {
-        if (!isParticipant(message->getSenderId())) {
-            return false;
-        }
+    bool addMessage(shared_ptr<Message> message) override {
+        if (!isParticipant(message->getSenderId())) return false;
         messages.push_back(message);
         return true;
     }
 
-    // Get recent messages
-    vector<shared_ptr<Message>> getRecentMessages(int limit = -1) const {
-        if (limit < 0 || limit > static_cast<int>(messages.size())) {
-            return messages;
-        }
-        
-        vector<shared_ptr<Message>> recent;
-        int start = messages.size() - limit;
-        for (size_t i = start; i < messages.size(); i++) {
-            recent.push_back(messages[i]);
-        }
-        return recent;
+    vector<shared_ptr<Message>> getMessages() const override { return messages; }
+
+    shared_ptr<Message> findMessage(const string& messageId) override {
+        return findByKey<Message>(messages,
+            [](const shared_ptr<Message>& m){ return m->getMessageId(); },
+            messageId);
     }
 
-    // Find message by ID
-    shared_ptr<Message> findMessage(const string& messageId) {
-        for (auto& msg : messages) {
-            if (msg->getMessageId() == messageId) {
-                return msg;
-            }
-        }
-        return nullptr;
-    }
+    int  getMessageCount() const override { return static_cast<int>(messages.size()); }
 
-    // Display group
-    void display() const {
+    void display() const override {
         cout << "\n=== Group: " << groupName << " ===" << endl;
         cout << "Group ID: " << groupId << endl;
-        cout << "Admin: " << adminId << endl;
+        cout << "Admin: "    << adminId << endl;
         cout << "Participants (" << participantIds.size() << "): ";
         for (size_t i = 0; i < participantIds.size(); i++) {
             cout << participantIds[i];
@@ -326,22 +306,37 @@ public:
         }
         cout << endl;
         cout << "Messages: " << messages.size() << endl;
-        cout << "Created: " << ctime(&createdAt);
-        
-        for (const auto& msg : messages) {
-            cout << "\n---" << endl;
-            msg->display();
-        }
+        cout << "Created: "  << ctime(&createdAt);
+        for (const auto& msg : messages) { cout << "\n---" << endl; msg->display(); }
     }
 
-    // Get message count
-    int getMessageCount() const {
-        return messages.size();
+    // ── GroupChat-specific methods ────────────────────────────────────────────
+    string         getGroupId()         const { return groupId;           }
+    string         getGroupName()       const { return groupName;         }
+    string         getAdminId()         const { return adminId;           }
+    vector<string> getParticipantIds()  const { return participantIds;    }
+    time_t         getCreatedAt()       const { return createdAt;         }
+    int            getParticipantCount() const { return static_cast<int>(participantIds.size()); }
+
+    void setGroupName(const string& name) { groupName = name; }
+
+    bool isAdmin(const string& userId) const { return userId == adminId; }
+
+    // Only admin can add; silently ignores if already a member
+    bool addParticipant(const string& userId, const string& addedBy) {
+        if (!isAdmin(addedBy))          return false;
+        if (isParticipant(userId))      return false;
+        participantIds.push_back(userId);
+        return true;
     }
 
-    // Get participant count
-    int getParticipantCount() const {
-        return participantIds.size();
+    // Only admin can remove; cannot remove the admin themselves
+    bool removeParticipant(const string& userId, const string& removedBy) {
+        if (!isAdmin(removedBy) || userId == adminId) return false;
+        auto it = find(participantIds.begin(), participantIds.end(), userId);
+        if (it == participantIds.end()) return false;
+        participantIds.erase(it);
+        return true;
     }
 };
 

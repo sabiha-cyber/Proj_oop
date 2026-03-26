@@ -11,6 +11,8 @@ class MessengerUI {
 private:
     MessengerManager& messenger;
 
+    // ── Formatting helpers ────────────────────────────────────────────────────
+
     void printSeparator(const string& title = "") {
         cout << "\n============================================================" << endl;
         if (!title.empty()) {
@@ -19,11 +21,14 @@ private:
         }
     }
 
+    // ── Menu ──────────────────────────────────────────────────────────────────
+
     void displayMainMenu() {
         if (messenger.isUserLoggedIn()) {
-            cout << "  Logged in as: " << messenger.getCurrentUsername() 
+            cout << "  Logged in as: " << messenger.getCurrentUsername()
                  << " (" << messenger.getCurrentUserId() << ")";
-            int padding = 54 - messenger.getCurrentUsername().length() - messenger.getCurrentUserId().length() - 19;
+            int padding = 54 - static_cast<int>(messenger.getCurrentUsername().length())
+                             - static_cast<int>(messenger.getCurrentUserId().length()) - 19;
             cout << string(max(0, padding), ' ') << " " << endl;
         }
         cout << "|--------------------------------------------------------|" << endl;
@@ -36,25 +41,33 @@ private:
         cout << "|  7. View Group Details                                 |" << endl;
         cout << "|  8. Like/Unlike Message                                |" << endl;
         cout << "|  9. View All Users                                     |" << endl;
+        cout << "| 10. Add Member to Group                                |" << endl;
+        cout << "| 11. Remove Member from Group                          |" << endl;
         cout << "|  0. Back                                               |" << endl;
         cout << "|--------------------------------------------------------|" << endl;
         cout << "Enter choice: ";
     }
 
+    // ── Handlers ──────────────────────────────────────────────────────────────
+
     void handleSendMessage() {
-        string receiverId, content;
-        cout << "\nAvailable users:" << endl;
-        auto allUsers = messenger.getAllUsers();
-        for (const auto& user : allUsers) {
-            if (user.first != messenger.getCurrentUserId()) {
-                cout << "  - " << user.second << " (ID: " << user.first << ")" << endl;
-            }
+        try {
+            string receiverId, content;
+            cout << "\nAvailable users:" << endl;
+            auto allUsers = messenger.getAllUsers();
+            for (const auto& user : allUsers)
+                if (user.first != messenger.getCurrentUserId())
+                    cout << "  - " << user.second << " (ID: " << user.first << ")" << endl;
+
+            cout << "\nEnter receiver ID: ";
+            getline(cin, receiverId);
+            cout << "Enter message: ";
+            getline(cin, content);
+            messenger.sendMessage(receiverId, content);
+
+        } catch (const exception& e) {
+            cout << "Unexpected error: " << e.what() << endl;
         }
-        cout << "\nEnter receiver ID: ";
-        getline(cin, receiverId);
-        cout << "Enter message: ";
-        getline(cin, content);
-        messenger.sendMessage(receiverId, content);
     }
 
     void handleViewMyConversations() {
@@ -66,9 +79,9 @@ private:
             cout << "You have " << convs.size() << " conversation(s):" << endl;
             for (const auto& conv : convs) {
                 auto participants = conv->getParticipantIds();
-                string otherUser = (participants[0] == messenger.getCurrentUserId()) 
+                string otherUser = (participants[0] == messenger.getCurrentUserId())
                                  ? participants[1] : participants[0];
-                cout << "  - With " << messenger.getUsername(otherUser) 
+                cout << "  - With " << messenger.getUsername(otherUser)
                      << " (ID: " << otherUser << ")"
                      << " - " << conv->getMessageCount() << " message(s)" << endl;
             }
@@ -79,6 +92,7 @@ private:
         string otherUserId;
         cout << "Enter user ID to view conversation: ";
         getline(cin, otherUserId);
+
         auto conv = messenger.getConversation(messenger.getCurrentUserId(), otherUserId);
         if (!conv) {
             cout << "No conversation found with " << messenger.getUsername(otherUserId) << endl;
@@ -86,12 +100,10 @@ private:
         }
         printSeparator("CONVERSATION WITH " + messenger.getUsername(otherUserId));
         auto messages = conv->getMessages();
-        if (messages.empty()) {
-            cout << "No messages yet." << endl;
-            return;
-        }
+        if (messages.empty()) { cout << "No messages yet." << endl; return; }
+
         for (const auto& msg : messages) {
-            bool isMine = (msg->getSenderId() == messenger.getCurrentUserId());
+            bool   isMine = (msg->getSenderId() == messenger.getCurrentUserId());
             string sender = isMine ? "You" : messenger.getUsername(msg->getSenderId());
             cout << "\n[" << msg->getMessageId() << "]" << endl;
             cout << sender << ": " << msg->getContent();
@@ -101,34 +113,39 @@ private:
     }
 
     void handleCreateGroup() {
-        string groupName, participantsInput;
-        cout << "Enter group name: ";
-        getline(cin, groupName);
-        cout << "Enter member IDs (comma-separated, optional): ";
-        getline(cin, participantsInput);
-        vector<string> participants;
-        if (!participantsInput.empty()) {
-            stringstream ss(participantsInput);
-            string id;
-            while (getline(ss, id, ',')) {
-                id.erase(0, id.find_first_not_of(" \t"));
-                id.erase(id.find_last_not_of(" \t") + 1);
-                if (!id.empty()) participants.push_back(id);
+        try {
+            string groupName, participantsInput;
+            cout << "Enter group name: ";
+            getline(cin, groupName);
+            cout << "Enter member IDs (comma-separated, optional): ";
+            getline(cin, participantsInput);
+
+            vector<string> participants;
+            if (!participantsInput.empty()) {
+                stringstream ss(participantsInput);
+                string id;
+                while (getline(ss, id, ',')) {
+                    id.erase(0, id.find_first_not_of(" \t"));
+                    id.erase(id.find_last_not_of(" \t") + 1);
+                    if (!id.empty()) participants.push_back(id);
+                }
             }
+            auto group = messenger.createGroup(groupName, participants);
+            if (group) cout << "Group ID: " << group->getGroupId() << endl;
+
+        } catch (const exception& e) {
+            cout << "Unexpected error: " << e.what() << endl;
         }
-        auto group = messenger.createGroup(groupName, participants);
-        if (group) cout << "Group ID: " << group->getGroupId() << endl;
     }
 
     void handleSendGroupMessage() {
         auto myGroups = messenger.getMyGroups();
-        if (myGroups.empty()) {
-            cout << "You are not in any groups yet." << endl;
-            return;
-        }
+        if (myGroups.empty()) { cout << "You are not in any groups yet." << endl; return; }
+
         cout << "\nYour groups:" << endl;
         for (const auto& g : myGroups)
             cout << "  - " << g->getGroupName() << " (ID: " << g->getGroupId() << ")" << endl;
+
         string groupId, content;
         cout << "\nEnter group ID: ";
         getline(cin, groupId);
@@ -148,7 +165,7 @@ private:
                 cout << "  - " << g->getGroupName()
                      << " (ID: " << g->getGroupId() << ")"
                      << " - " << g->getParticipantCount() << " member(s)"
-                     << " - " << g->getMessageCount() << " message(s)";
+                     << " - " << g->getMessageCount()     << " message(s)";
                 if (g->getAdminId() == messenger.getCurrentUserId()) cout << " [You are admin]";
                 cout << endl;
             }
@@ -159,6 +176,7 @@ private:
         string groupId;
         cout << "Enter group ID: ";
         getline(cin, groupId);
+
         auto group = messenger.getGroup(groupId);
         if (!group) { cout << "Group not found!" << endl; return; }
         if (!group->isParticipant(messenger.getCurrentUserId())) {
@@ -167,21 +185,23 @@ private:
         }
         printSeparator("GROUP: " + group->getGroupName());
         cout << "Group ID: " << group->getGroupId() << endl;
-        cout << "Admin: " << messenger.getUsername(group->getAdminId());
+        cout << "Admin: "    << messenger.getUsername(group->getAdminId());
         if (group->getAdminId() == messenger.getCurrentUserId()) cout << " (You)";
         cout << endl;
+
         cout << "\nMembers (" << group->getParticipantCount() << "):" << endl;
         for (const auto& pid : group->getParticipantIds()) {
             cout << "  - " << messenger.getUsername(pid);
             if (pid == messenger.getCurrentUserId()) cout << " (You)";
-            if (pid == group->getAdminId()) cout << " [Admin]";
+            if (pid == group->getAdminId())          cout << " [Admin]";
             cout << endl;
         }
+
         cout << "\nMessages:" << endl;
         auto messages = group->getMessages();
         if (messages.empty()) { cout << "No messages yet." << endl; return; }
         for (const auto& msg : messages) {
-            bool isMine = (msg->getSenderId() == messenger.getCurrentUserId());
+            bool   isMine = (msg->getSenderId() == messenger.getCurrentUserId());
             string sender = isMine ? "You" : messenger.getUsername(msg->getSenderId());
             cout << "\n[" << msg->getMessageId() << "]" << endl;
             cout << sender << ": " << msg->getContent();
@@ -197,7 +217,8 @@ private:
         cin >> typeChoice;
         cin.ignore();
         bool isGroup = (typeChoice == 'g' || typeChoice == 'G');
-        cout << "Enter " << (isGroup ? "group" : "conversation") << " ID:[forma: conv_smallerid_largerid]";
+        cout << "Enter " << (isGroup ? "group" : "conversation")
+             << " ID [format: conv_smallerid_largerid]: ";
         getline(cin, chatId);
         cout << "Enter message ID: ";
         getline(cin, messageId);
@@ -210,6 +231,36 @@ private:
             messenger.unlikeMessage(messageId, chatId, isGroup);
     }
 
+    // ── NEW: group member management ──────────────────────────────────────────
+
+    void handleAddMember() {
+        auto myGroups = messenger.getMyGroups();
+        if (myGroups.empty()) { cout << "You are not in any groups." << endl; return; }
+
+        cout << "\nYour groups:" << endl;
+        for (const auto& g : myGroups)
+            cout << "  - " << g->getGroupName() << " (ID: " << g->getGroupId() << ")" << endl;
+
+        string groupId, userId;
+        cout << "\nEnter group ID: ";    getline(cin, groupId);
+        cout << "Enter user ID to add: "; getline(cin, userId);
+        messenger.addMemberToGroup(groupId, userId);
+    }
+
+    void handleRemoveMember() {
+        auto myGroups = messenger.getMyGroups();
+        if (myGroups.empty()) { cout << "You are not in any groups." << endl; return; }
+
+        cout << "\nYour groups:" << endl;
+        for (const auto& g : myGroups)
+            cout << "  - " << g->getGroupName() << " (ID: " << g->getGroupId() << ")" << endl;
+
+        string groupId, userId;
+        cout << "\nEnter group ID: ";       getline(cin, groupId);
+        cout << "Enter user ID to remove: "; getline(cin, userId);
+        messenger.removeMemberFromGroup(groupId, userId);
+    }
+
 public:
     MessengerUI(MessengerManager& mgr) : messenger(mgr) {}
 
@@ -220,15 +271,17 @@ public:
             cin >> choice;
             cin.ignore();
             switch (choice) {
-                case 1: handleSendMessage(); break;
-                case 2: handleViewMyConversations(); break;
-                case 3: handleViewConversation(); break;
-                case 4: handleCreateGroup(); break;
-                case 5: handleSendGroupMessage(); break;
-                case 6: handleViewMyGroups(); break;
-                case 7: handleViewGroupDetails(); break;
-                case 8: handleLikeUnlike(); break;
-                case 9: messenger.displayAllUsers(); break;
+                case 1:  handleSendMessage();         break;
+                case 2:  handleViewMyConversations(); break;
+                case 3:  handleViewConversation();    break;
+                case 4:  handleCreateGroup();         break;
+                case 5:  handleSendGroupMessage();    break;
+                case 6:  handleViewMyGroups();        break;
+                case 7:  handleViewGroupDetails();    break;
+                case 8:  handleLikeUnlike();          break;
+                case 9:  messenger.displayAllUsers(); break;
+                case 10: handleAddMember();           break;
+                case 11: handleRemoveMember();        break;
                 case 0:
                     messenger.logout();
                     cout << "Returning to News Feed...\n";
