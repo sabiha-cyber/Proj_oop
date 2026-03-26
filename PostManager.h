@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <string>
+#include "GenericManager.h"  // Include the template header
+
 using namespace std;
 
 class Post;
@@ -10,9 +12,8 @@ class User;
 class LikeManager;
 class CommentManager;
 
-class PostManager {
+class PostManager : public GenericManager<Post> {  // Template usage
 private:
-    vector<Post*> posts;
     size_t  defaultCapacity;
     int  nextPostId;
 
@@ -32,7 +33,7 @@ public:
     vector<Post*> getPostsByCategory(const string& cat) const;
     vector<Post*> getAllActivePosts() const;
 
-    // Deletion (soft — post* stays in vector)
+    // Deletion (soft - post* stays in vector)
     void deletePostById(int id, User* requestingUser,
                         CommentManager& cm, LikeManager& lm);
 
@@ -42,7 +43,7 @@ public:
 
     // Getters
     int getNextPostId() const;
-    const vector<Post*>& getPosts() const;
+    const vector<Post*>& getPosts() const { return getItems(); }  // Wrapper
 };
 
 #endif

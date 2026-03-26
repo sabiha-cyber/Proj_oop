@@ -3,6 +3,7 @@
 #include "User.h"
 #include "LikeManager.h"
 #include "CommentManager.h"
+#include "SocialExceptions.h"
 
 #include <iostream>
 #include <fstream>
@@ -17,8 +18,7 @@ PostManager::PostManager(size_t capacity)
 {}
 
 PostManager::~PostManager() {
-    for (Post* p : posts) delete p;
-    posts.clear();
+    // Base class destructor handles deleting items
 }
 
 // ── Core ──────────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ void PostManager::addPost(Post* p) {
     if (p->getPostId() >= nextPostId) {
         nextPostId = p->getPostId() + 1;
     }
-    posts.push_back(p);
+    addItem(p);
 }
 
 Post* PostManager::createAndAdd(User* user) {
@@ -41,7 +41,7 @@ Post* PostManager::createAndAdd(User* user) {
     }
     Post* p = Post::createPost(nextPostId, user, defaultCapacity);
     if (p) {
-        posts.push_back(p);
+        addItem(p);
         ++nextPostId;
     }
     return p;
@@ -53,7 +53,7 @@ Post* PostManager::createAndAdd(User* user, const string& content, const string&
         return nullptr;
     }
     Post* p = new Post(nextPostId, user, content, defaultCapacity, cat);
-    posts.push_back(p);
+    addItem(p);
     ++nextPostId;
     return p;
 }
@@ -61,7 +61,7 @@ Post* PostManager::createAndAdd(User* user, const string& content, const string&
 // ── Lookup ────────────────────────────────────────────────────────────────────
 
 Post* PostManager::findPostById(int id) const {
-    for (Post* p : posts) {
+    for (Post* p : getItems()) {
         if (p->getPostId() == id) return p;
     }
     return nullptr;
@@ -69,7 +69,7 @@ Post* PostManager::findPostById(int id) const {
 
 vector<Post*> PostManager::getAllActivePosts() const {
     vector<Post*> result;
-    for (Post* p : posts) {
+    for (Post* p : getItems()) {
         if (!p->isDeletedPost()) result.push_back(p);
     }
     return result;
@@ -77,7 +77,7 @@ vector<Post*> PostManager::getAllActivePosts() const {
 
 vector<Post*> PostManager::getPostsByUser(User* user) const {
     vector<Post*> result;
-    for (Post* p : posts) {
+    for (Post* p : getItems()) {
         if (p->getAuthor() == user && !p->isDeletedPost())
             result.push_back(p);
     }
@@ -86,7 +86,7 @@ vector<Post*> PostManager::getPostsByUser(User* user) const {
 
 vector<Post*> PostManager::getPostsByCategory(const string& cat) const {
     vector<Post*> result;
-    for (Post* p : posts) {
+    for (Post* p : getItems()) {
         if (p->getCategory() == cat && !p->isDeletedPost())
             result.push_back(p);
     }
@@ -129,85 +129,88 @@ void PostManager::deletePostById(int id, User* requestingUser,
 */
 
 void PostManager::saveToFile(const string& filename) const {
-    ofstream out(filename);
-    if (!out.is_open()) {
-        cout << "Error: Could not open '" << filename << "' for saving.\n";
-        return;
+    try {
+        ofstream out(filename);
+        if (!out) throw FileIOException("Cannot open file: " + filename);
+
+        int saved = 0;
+        for (const Post* p : getItems()) {
+            if (p->isDeletedPost()) continue;
+
+            out << p->getPostId()                                         << '|'
+                << (p->getAuthor() ? p->getAuthor()->getUsername() : "") << '|'
+                << p->getCategory()                                       << '|'
+                << p->getMaxCapacity()                                    << '|'
+                << p->getShareCount()                                     << '|'
+                << p->getCreationTime()                                   << '|'
+                << p->getText()                                           << '\n';
+            ++saved;
+        }
+
+        cout << saved << " post(s) saved to '" << filename << "'.\n";
+    } catch (const FileIOException& e) {
+        std::cerr << "File error: " << e.what() << "\n";
+        // Continue without saving—core logic unchanged
     }
-
-    int saved = 0;
-    for (const Post* p : posts) {
-        if (p->isDeletedPost()) continue;
-
-        out << p->getPostId()                                         << '|'
-            << (p->getAuthor() ? p->getAuthor()->getUsername() : "") << '|'
-            << p->getCategory()                                       << '|'
-            << p->getMaxCapacity()                                    << '|'
-            << p->getShareCount()                                     << '|'
-            << p->getCreationTime()                                   << '|'
-            << p->getText()                                           << '\n';
-        ++saved;
-    }
-
-    cout << saved << " post(s) saved to '" << filename << "'.\n";
 }
 
 void PostManager::loadFromFile(const string& filename, vector<User*>& users) {
-    ifstream in(filename);
-    if (!in.is_open()) {
-        cout << "No post file found at '" << filename << "'. Starting fresh.\n";
-        return;
-    }
+    try {
+        ifstream in(filename);
+        if (!in) throw FileIOException("Cannot open file: " + filename);
 
-    string line;
-    int loaded = 0;
+        string line;
+        int loaded = 0;
 
-    while (getline(in, line)) {
-        if (line.empty()) continue;
+        while (getline(in, line)) {
+            if (line.empty()) continue;
 
-        istringstream ss(line);
-        string idStr, authorName, cat, capStr, shareStr, timeStr, content;
+            istringstream ss(line);
+            string idStr, authorName, cat, capStr, shareStr, timeStr, content;
 
-        if (!getline(ss, idStr,      '|') ||
-            !getline(ss, authorName, '|') ||
-            !getline(ss, cat,        '|') ||
-            !getline(ss, capStr,     '|') ||
-            !getline(ss, shareStr,   '|') ||
-            !getline(ss, timeStr,    '|') ||
-            !getline(ss, content         ))
-        {
-            cout << "Warning: Skipping malformed line.\n";
-            continue;
-        }
-
-        // Resolve username → User*
-        User* author = nullptr;
-        for (User* u : users) {
-            if (u->getUsername() == authorName) {
-                author = u;
-                break;
+            if (!getline(ss, idStr,      '|') ||
+                !getline(ss, authorName, '|') ||
+                !getline(ss, cat,        '|') ||
+                !getline(ss, capStr,     '|') ||
+                !getline(ss, shareStr,   '|') ||
+                !getline(ss, timeStr,    '|') ||
+                !getline(ss, content         ))
+            {
+                cout << "Warning: Skipping malformed line.\n";
+                continue;
             }
+
+            // Resolve username → User*
+            User* author = nullptr;
+            for (User* u : users) {
+                if (u->getUsername() == authorName) {
+                    author = u;
+                    break;
+                }
+            }
+
+            if (!author) {
+                cout << "Warning: Author '" << authorName << "' not found. Skipping.\n";
+                continue;
+            }
+
+            size_t cap = static_cast<size_t>(stoul(capStr));
+            int    pid = stoi(idStr);
+            Post*  p   = new Post(pid, author, content, cap, cat);
+
+            addItem(p);
+            author->addPost(p);   // attach to user's "My Posts" list
+            if (pid >= nextPostId) nextPostId = pid + 1;
+            ++loaded;
         }
 
-        if (!author) {
-            cout << "Warning: Author '" << authorName << "' not found. Skipping.\n";
-            continue;
-        }
-
-        size_t cap = static_cast<size_t>(stoul(capStr));
-        int    pid = stoi(idStr);
-        Post*  p   = new Post(pid, author, content, cap, cat);
-
-        posts.push_back(p);
-        if (pid >= nextPostId) nextPostId = pid + 1;
-        ++loaded;
+        cout << loaded << " post(s) loaded from '" << filename << "'.\n";
+    } catch (const FileIOException& e) {
+        std::cerr << "File error: " << e.what() << "\n";
+        // Continue without loading—core logic unchanged, starting fresh
     }
-
-    cout << loaded << " post(s) loaded from '" << filename << "'.\n";
 }
 
 // ── Getters ───────────────────────────────────────────────────────────────────
 
 int PostManager::getNextPostId() const { return nextPostId; }
-
-const vector<Post*>& PostManager::getPosts() const { return posts; }
