@@ -79,7 +79,6 @@ bool FriendService::sendFriendRequest(int senderId,
         std::cout << "Request already sent.\n"; return false;
     }
 
-    // Mutual request → auto-accept
     auto& incoming = pendingRequests[targetId];
     auto it = std::find(incoming.begin(), incoming.end(), senderId);
     if (it != incoming.end()) {
@@ -88,8 +87,12 @@ bool FriendService::sendFriendRequest(int senderId,
         target->addFriend(senderId);
         saveFriends();
         saveFriendRequests();
+      
+        std::cout << "DEBUG sendFriendRequest this=" << this
+          << " senderId=" << senderId
+          << " targetId=" << targetId << "\n";
+        debugDumpPending();
 
-        // ── Both become friends: notify both sides ────────────────────────────
         if (notifMgr) {
             notifMgr->notifyFriendAccept(senderId,  targetId, target->getUsername());
             notifMgr->notifyFriendAccept(targetId,  senderId, sender->getUsername());
@@ -101,7 +104,6 @@ bool FriendService::sendFriendRequest(int senderId,
     sent.push_back(targetId);
     saveFriendRequests();
 
-    // ── Notify the target they received a friend request ─────────────────────
     if (notifMgr) {
         notifMgr->notifyFriendRequest(targetId, senderId, sender->getUsername());
     }
@@ -110,25 +112,47 @@ bool FriendService::sendFriendRequest(int senderId,
     return true;
 }
 
-bool FriendService::acceptFriendRequest(int receiverId, int senderId) {
-    auto& sentBySender = pendingRequests[senderId];
-    auto it = std::find(sentBySender.begin(), sentBySender.end(), receiverId);
-    if (it == sentBySender.end()) {
-        std::cout << "No pending request from that user.\n"; return false;
+bool FriendService::acceptFriendRequest(int receiverId, int senderId)
+{
+
+    auto itMap = pendingRequests.find(senderId);
+    if (itMap == pendingRequests.end()) {
+        std::cout << "No pending request from that user.\n";
+        return false;
     }
 
-    sentBySender.erase(it);
+    // Verify that receiverId is actually in the sender's pending list
+    auto& receivers = itMap->second;
+    auto it = std::find(receivers.begin(), receivers.end(), receiverId);
+    if (it == receivers.end()) {
+        std::cout << "No pending request from that user.\n";
+        return false;
+    }
 
     User* receiver = authService.findUserById(receiverId);
     User* sender   = authService.findUserById(senderId);
-    if (!receiver || !sender) return false;
+    if (!receiver || !sender) {
+        std::cout << "User not found. Cannot accept request.\n";
+        return false;
+    }
+
+    if (areFriends(receiverId, senderId)) {
+        receivers.erase(it);
+        if (receivers.empty()) pendingRequests.erase(itMap);
+        saveFriendRequests();
+        std::cout << "You are already friends. Pending request removed.\n";
+        return true;
+    }
+
+    receivers.erase(it);
+    if (receivers.empty()) pendingRequests.erase(itMap);
 
     receiver->addFriend(senderId);
     sender->addFriend(receiverId);
+
     saveFriends();
     saveFriendRequests();
 
-    // ── Notify the original sender their request was accepted ─────────────────
     if (notifMgr) {
         notifMgr->notifyFriendAccept(senderId, receiverId, receiver->getUsername());
     }
@@ -163,37 +187,40 @@ bool FriendService::removeFriend(int userId, int friendId) {
         return false;
     }
 
-    // Remove from both sides
     user->removeFriend(friendId);
     friendUser->removeFriend(userId);
 
-    // Save the updated friendships
     saveFriends();
 
     std::cout << "  You have removed " << friendUser->getUsername() << " from your friends list.\n";
 
-    // Optional: add notification here later if you want
-    // if (notificationMgr) {
-    //     notificationMgr->notifyUnfriend(friendId, userId, user->getUsername());
-    //     notificationMgr->notifyUnfriend(userId, friendId, friendUser->getUsername());
-    // }
 
     return true;
 }
 
 void FriendService::showPendingRequestsForUser(int userId) const {
+  
+    std::cout << "DEBUG showPendingRequestsForUser this=" << this
+          << " userId=" << userId << "\n";
+        debugDumpPending();
+    
     std::cout << "\nPending friend requests for you:\n";
     bool hasAny = false;
+
     for (const auto& [senderId, receivers] : pendingRequests) {
         if (std::find(receivers.begin(), receivers.end(), userId) != receivers.end()) {
-            User* sender = authService.findUserById(senderId);
-            if (sender) {
+            hasAny = true;
+
+            if (User* sender = authService.findUserById(senderId)) {
                 std::cout << "  - From: " << sender->getUsername()
                           << " (ID: " << senderId << ")\n";
-                hasAny = true;
+            } else {
+                std::cout << "  - From user ID: " << senderId
+                          << " (sender not found in authService)\n";
             }
         }
     }
+
     if (!hasAny) std::cout << "  No pending requests.\n";
 }
 
@@ -207,4 +234,20 @@ std::vector<int> FriendService::getFriendIdsOf(int userId) const {
     User* u = authService.findUserById(userId);
     if (!u) return {};
     return u->getFriendIds();
+}
+
+void FriendService::debugDumpPending() const
+{
+    std::cout << "\n--- DEBUG pendingRequests (this=" << this << ") ---\n";
+    std::cout << "size = " << pendingRequests.size() << "\n";
+
+    for (const auto& entry : pendingRequests) {
+        int senderId = entry.first;
+        const auto& receivers = entry.second;
+
+        std::cout << "sender " << senderId << " -> [ ";
+        for (int r : receivers) std::cout << r << " ";
+        std::cout << "]\n";
+    }
+    std::cout << "----------------------------------------------------------\n";
 }
