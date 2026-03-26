@@ -13,7 +13,7 @@ private:
     AuthenticationService& authService;
     NotificationManager*   notifMgr=nullptr;
 
-    // Pending requests: senderId → list of receiverIds who have pending request from him
+
     std::map<int, std::vector<int>> pendingRequests;
 
     static const std::string REQUESTS_FILE;
@@ -21,7 +21,7 @@ private:
 
     void loadFriendRequests();
     void saveFriendRequests() const;
-    void loadFriends();           // ← important: missing in your code
+    void loadFriends();           
     void saveFriends() const;
 
 public:
@@ -37,8 +37,10 @@ public:
     void showPendingRequestsForUser(int userId) const;
 
     bool areFriends(int userId1, int userId2) const;
-
-    std::vector<int> getFriendIdsOf(int userId) const;   // changed to return IDs (safer)
+    void debugDumpPending() const;
+    std::vector<int> getFriendIdsOf(int userId) const;   
+    FriendService(const FriendService&) = delete;
+    FriendService& operator=(const FriendService&) = delete;
 };
 
-#endif // FRIEND_SERVICE_H
+#endif 
