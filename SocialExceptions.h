@@ -4,14 +4,43 @@
 #include <stdexcept>
 #include <string>
 
-class InvalidContentException : public std::runtime_error {
+// ── Base exception ────────────────────────────────────────────────────────────
+
+class SocialException : public std::runtime_error {
 public:
-    InvalidContentException(const std::string& msg) : std::runtime_error(msg) {}
+    explicit SocialException(const std::string& msg) : std::runtime_error(msg) {}
 };
 
-class FileIOException : public std::runtime_error {
+// ── Existing exceptions (now inherit from SocialException) ───────────────────
+
+class InvalidContentException : public SocialException {
 public:
-    FileIOException(const std::string& msg) : std::runtime_error(msg) {}
+    InvalidContentException(const std::string& msg) : SocialException(msg) {}
 };
 
-#endif
+class FileIOException : public SocialException {
+public:
+    FileIOException(const std::string& msg) : SocialException(msg) {}
+};
+
+// ── New exceptions ────────────────────────────────────────────────────────────
+
+class UserNotFoundException : public std::runtime_error {
+public:
+    explicit UserNotFoundException(const std::string& userId)
+        : std::runtime_error("User not found: " + userId) {}
+};
+
+class UnauthorizedException : public std::runtime_error {
+public:
+    explicit UnauthorizedException(const std::string& msg)
+        : std::runtime_error(msg) {}
+};
+
+class ChatNotFoundException : public std::runtime_error {
+public:
+    explicit ChatNotFoundException(const std::string& chatId)
+        : std::runtime_error("Chat not found: " + chatId) {}
+};
+
+#endif // SOCIAL_EXCEPTIONS_H
