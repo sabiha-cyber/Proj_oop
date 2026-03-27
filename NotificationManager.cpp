@@ -1,7 +1,7 @@
 #include "NotificationManager.h"
 #include "Notification.h"
 
-// Real manager headers — NotificationManager reads from these
+
 #include "LikeManager.h"
 #include "CommentManager.h"
 #include "PostManager.h"
@@ -24,7 +24,7 @@ using namespace std;
 
 const string NotificationManager::NOTIF_FILE = "notifications.txt";
 
-// ── Constructor ───────────────────────────────────────────────────────────────
+
 NotificationManager::NotificationManager(LikeManager*           likeMgr,
                                           CommentManager*        commentMgr,
                                           PostManager*           postMgr,
@@ -44,7 +44,7 @@ NotificationManager::~NotificationManager() {
     clear();
 }
 
-// ── alreadyExists: prevents duplicate notifications on re-scan ────────────────
+
 bool NotificationManager::alreadyExists(NotificationType type,
                                          int actorId,
                                          int referenceId) const {
@@ -57,8 +57,7 @@ bool NotificationManager::alreadyExists(NotificationType type,
     return false;
 }
 
-// ── scanLikes ─────────────────────────────────────────────────────────────────
-// Reads every Like from LikeManager, finds the post owner, creates notification
+
 void NotificationManager::scanLikes() {
     if (!likeMgr) return;
 
@@ -85,7 +84,7 @@ void NotificationManager::scanLikes() {
     }
 }
 
-// ── scanComments ──────────────────────────────────────────────────────────────
+
 void NotificationManager::scanComments() {
     if (!commentMgr) return;
 
@@ -115,27 +114,25 @@ void NotificationManager::scanComments() {
     }
 }
 
-// ── scanFriends ───────────────────────────────────────────────────────────────
-// Reads confirmed friendships from FriendService and generates FRIEND_ACCEPT
-// notifications for both sides if not already present.
+
 void NotificationManager::scanFriends() {
     if (!friendSvc || !authSvc) return;
 
     for (const User& u : authSvc->getUsers()) {
         int uid = u.getUserId();
         for (int fid : u.getFriendIds()) {
-            if (uid >= fid) continue;   // process each pair once
+            if (uid >= fid) continue;  
 
             User* a = authSvc->findUserById(uid);
             User* b = authSvc->findUserById(fid);
             if (!a || !b) continue;
 
-            // Notify uid that fid accepted (if not already there)
+            
             if (!alreadyExists(NotificationType::FRIEND_ACCEPT, fid, fid))
                 create(uid, fid, NotificationType::FRIEND_ACCEPT,
                        fid, b->getUsername());
 
-            // Notify fid that uid accepted (if not already there)
+           
             if (!alreadyExists(NotificationType::FRIEND_ACCEPT, uid, uid))
                 create(fid, uid, NotificationType::FRIEND_ACCEPT,
                        uid, a->getUsername());
@@ -143,24 +140,22 @@ void NotificationManager::scanFriends() {
     }
 }
 
-// ── scanAndGenerate ───────────────────────────────────────────────────────────
-// Call this once after all managers are loaded from their files.
-// Reads real data and fills in any missing notifications.
+.
 void NotificationManager::scanAndGenerate() {
     scanLikes();
     scanComments();
     scanFriends();
-    saveToFile();   // persist newly generated notifications
+    saveToFile();   
     cout << "[NotificationManager] Scan complete. Total notifications: "
          << notifications.size() << "\n";
 }
 
-// ── Internal factory ──────────────────────────────────────────────────────────
+
 Notification* NotificationManager::create(int recipientId, int actorId,
                                            NotificationType type, int referenceId,
                                            const string& actorUsername,
                                            const string& snippet) {
-    if (recipientId == actorId) return nullptr;   // never self-notify
+    if (recipientId == actorId) return nullptr;   
 
     Notification* n = new Notification(nextId++, recipientId, actorId,
                                         type, referenceId,
@@ -169,7 +164,7 @@ Notification* NotificationManager::create(int recipientId, int actorId,
     return n;
 }
 
-// ── Direct notify methods (called right after a new action at runtime) ────────
+
 Notification* NotificationManager::notifyLike(int recipientId, int actorId,
                                                const string& actorUsername,
                                                int postId) {
@@ -229,7 +224,7 @@ Notification* NotificationManager::notifyMention(int recipientId, int actorId,
     return n;
 }
 
-// ── Inbox display ─────────────────────────────────────────────────────────────
+
 void NotificationManager::showInbox(int userId) const {
     auto notifs = getForUser(userId);
 
@@ -261,7 +256,7 @@ int NotificationManager::unreadCount(int userId) const {
     return count;
 }
 
-// ── Read management ───────────────────────────────────────────────────────────
+
 bool NotificationManager::markAsRead(int notifId) {
     Notification* n = findById(notifId);
     if (!n) return false;
@@ -277,7 +272,7 @@ void NotificationManager::markAllAsRead(int userId) {
     cout << "All notifications marked as read.\n";
 }
 
-// ── Deletion ──────────────────────────────────────────────────────────────────
+
 bool NotificationManager::deleteById(int notifId) {
     for (auto it = notifications.begin(); it != notifications.end(); ++it) {
         if ((*it)->getNotifId() == notifId) {
@@ -315,7 +310,7 @@ void NotificationManager::deleteByType(int userId, NotificationType type) {
          << Notification::typeToString(type) << "' cleared.\n";
 }
 
-// ── Lookup ────────────────────────────────────────────────────────────────────
+
 Notification* NotificationManager::findById(int notifId) const {
     for (Notification* n : notifications)
         if (n->getNotifId() == notifId) return n;
@@ -342,7 +337,7 @@ vector<Notification*> NotificationManager::getUnreadForUser(int userId) const {
     return result;
 }
 
-// ── Persistence ───────────────────────────────────────────────────────────────
+
 void NotificationManager::saveToFile(const string& filename) const {
     ofstream out(filename);
     if (!out) { cerr << "Warning: Could not open '" << filename << "'.\n"; return; }
@@ -401,7 +396,7 @@ void NotificationManager::loadFromFile(const string& filename) {
     }
 }
 
-// ── Misc ──────────────────────────────────────────────────────────────────────
+
 void NotificationManager::clear() {
     for (Notification* n : notifications) delete n;
     notifications.clear();
