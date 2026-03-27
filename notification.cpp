@@ -46,12 +46,12 @@ Notification::Notification(int notifId,
       read(false)
 {}
 
-// ── Actions ───────
+
 void Notification::markAsRead() {
     read = true;
 }
 
-// Builds the human-readable FB-style message
+
 string Notification::buildMessage() const {
     switch (type) {
         case NotificationType::LIKE:
@@ -132,7 +132,7 @@ NotificationType Notification::stringToType(const string& s) {
     return NotificationType::LIKE;
 }
 
-// ── Getters ───────────────────────────────────────────────────────────────────
+// ── Getters 
 int              Notification::getNotifId()       const { return notifId; }
 int              Notification::getRecipientId()   const { return recipientUserId; }
 int              Notification::getActorId()       const { return actorUserId; }
