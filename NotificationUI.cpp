@@ -7,11 +7,11 @@
 
 using namespace std;
 
-// ── Constructor ───────────────────────────────────────────────────────────────
+
 NotificationUI::NotificationUI(NotificationManager& manager)
     : mgr(manager) {}
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+
 void NotificationUI::printDivider() const {
     cout << "  ------------------------------------------------\n";
 }
@@ -71,19 +71,19 @@ NotificationType NotificationUI::pickType() const {
     }
 }
 
-// ── Badge (for main menu header) ──────────────────────────────────────────────
+
 void NotificationUI::showBadge(int userId) const {
     int unread = mgr.unreadCount(userId);
     if (unread > 0)
         cout << "   You have " << unread << " unread notification(s).\n";
 }
 
-// ── Main entry point ──────────────────────────────────────────────────────────
+
 void NotificationUI::showNotificationPanel(int userId, const string& username) {
     menuMain(userId, username);
 }
 
-// ── Main menu ─────────────────────────────────────────────────────────────────
+// ── Main menu 
 void NotificationUI::menuMain(int userId, const string& username) {
     int choice = -1;
     while (choice != 0) {
@@ -110,7 +110,7 @@ void NotificationUI::menuMain(int userId, const string& username) {
     }
 }
 
-// ── View All ──────────────────────────────────────────────────────────────────
+
 void NotificationUI::menuViewAll(int userId) {
     auto notifs = mgr.getForUser(userId);
 
@@ -163,7 +163,7 @@ void NotificationUI::menuViewAll(int userId) {
     }
 }
 
-// ── View Unread ───────────────────────────────────────────────────────────────
+// ── View Unread 
 void NotificationUI::menuViewUnread(int userId) {
     auto notifs = mgr.getUnreadForUser(userId);
 
@@ -189,7 +189,7 @@ void NotificationUI::menuViewUnread(int userId) {
     }
 }
 
-// ── Mark Read ─────────────────────────────────────────────────────────────────
+// ── Mark Read 
 void NotificationUI::menuMarkRead(int userId) {
     printHeader("Mark as Read", userId);
     cout << "\n";
@@ -232,7 +232,7 @@ void NotificationUI::menuMarkRead(int userId) {
     }
 }
 
-// ── Delete ────────────────────────────────────────────────────────────────────
+// ── Delete 
 void NotificationUI::menuDelete(int userId) {
     printHeader("Delete Notifications", userId);
     cout << "\n";
@@ -244,7 +244,7 @@ void NotificationUI::menuDelete(int userId) {
     int ch = getIntInput("  Choice: ");
 
     if (ch == 1) {
-        // Show all first
+       
         auto notifs = mgr.getForUser(userId);
         if (notifs.empty()) {
             cout << "  No notifications to delete.\n";
@@ -281,7 +281,7 @@ void NotificationUI::menuDelete(int userId) {
     }
 }
 
-// ── Filter by Type ────────────────────────────────────────────────────────────
+// ── Filter by Type 
 void NotificationUI::menuFilter(int userId) {
     printHeader("Filter by Type", userId);
 
