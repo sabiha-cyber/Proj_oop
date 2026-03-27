@@ -20,26 +20,26 @@ private:
 public:
     AuthenticationService();
 
-    // ── Registration & Login ──────────────────────────────────────────────────
+    
     bool registerUser(const std::string& username, const std::string& password);
     int  login       (const std::string& username, const std::string& password) const;
 
-    // ── Lookup (non-const + const overloads) ──────────────────────────────────
+   
     User*       findUserById      (int id);
     const User* findUserById      (int id)                     const;
 
     User*       findUserByUsername(const std::string& username);
     const User* findUserByUsername(const std::string& username) const;
 
-    // ── Display ───────────────────────────────────────────────────────────────
+  
     void listAllUsers() const;
 
-    // ── Accessors for FriendService / SocialNetwork ───────────────────────────
+   
     std::vector<User>&              getUsers();
-    const std::vector<User>&        getUsers()             const;   // ← ADDED
+    const std::vector<User>&        getUsers()             const;   
 
     std::map<std::string, int>&       getUsernameToIdMap();
-    const std::map<std::string, int>& getUsernameToIdMap() const;   // ← ADDED
+    const std::map<std::string, int>& getUsernameToIdMap() const;   
 };
 
-#endif // AUTHENTICATION_SERVICE_H
+#endif 
