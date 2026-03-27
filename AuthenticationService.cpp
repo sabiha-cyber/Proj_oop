@@ -5,7 +5,6 @@
 
 const std::string AuthenticationService::USERS_FILE = "users.txt";
 
-// ── Constructor ───────────────────────────────────────────────────────────────
 
 AuthenticationService::AuthenticationService() {
 
@@ -51,34 +50,31 @@ void AuthenticationService::saveUsersToFile() const {
     out.close();
 }
 
-// ── Registration & Login ──────────────────────────────────────────────────────
 
 bool AuthenticationService::registerUser(const std::string& username,
                                           const std::string& password) {
-    // Validate username
+ 
     if (username.empty() || username.find(' ') != std::string::npos) {
         std::cout << "❌ Invalid username (no spaces allowed).\n";
         return false;
     }
-    if (username.length() < 3) {                          // ← ADDED: min-length
+    if (username.length() < 3) {                         
         std::cout << "❌ Username too short (minimum 3 characters).\n";
         return false;
     }
 
-    // Validate password
+
     if (password.length() < 8) {
         std::cout << "❌ Password too short (minimum 8 characters).\n";
         return false;
     }
 
-    // Duplicate check
+
     if (usernameToUserId.count(username)) {
         std::cout << "❌ Username already exists.\n";
         return false;
     }
 
-    // Guard: if we somehow approach the reserved capacity, extend it safely
-    // before any pointer is taken (no pointer is held at this call site).
     if (users.size() >= users.capacity()) {
         users.reserve(users.capacity() * 2);
     }
@@ -116,7 +112,6 @@ int AuthenticationService::login(const std::string& username,
     return -1;
 }
 
-// ── Lookup ────────────────────────────────────────────────────────────────────
 
 User* AuthenticationService::findUserById(int id) {
     for (auto& u : users)
@@ -142,7 +137,6 @@ const User* AuthenticationService::findUserByUsername(const std::string& usernam
     return findUserById(it->second);
 }
 
-// ── Display ───────────────────────────────────────────────────────────────────
 
 void AuthenticationService::listAllUsers() const {
     std::cout << "\n╔═══════════ Registered Users ═══════════╗\n";
@@ -158,13 +152,12 @@ void AuthenticationService::listAllUsers() const {
     std::cout << "╚════════════════════════════════════════╝\n";
 }
 
-// ── Accessors ─────────────────────────────────────────────────────────────────
 
 std::vector<User>& AuthenticationService::getUsers() {
     return users;
 }
 
-const std::vector<User>& AuthenticationService::getUsers() const {   // ← ADDED
+const std::vector<User>& AuthenticationService::getUsers() const {  
     return users;
 }
 
@@ -172,7 +165,7 @@ std::map<std::string, int>& AuthenticationService::getUsernameToIdMap() {
     return usernameToUserId;
 }
 
-const std::map<std::string, int>&                                      // ← ADDED
+const std::map<std::string, int>&                                    
 AuthenticationService::getUsernameToIdMap() const {
     return usernameToUserId;
 }
