@@ -13,10 +13,13 @@
 #include <limits>
 #include <vector>
 #include <filesystem>
+#include <cstdlib>
+
 
 using namespace std;
 
 // ── Forward declarations ──────────────────────────────────────────────────────
+
 
 static void userSession(User* currentUser,
                         AuthenticationService& authService,
@@ -49,7 +52,7 @@ static void showLoginMenu(AuthenticationService& authService,
 
     while (choice != 0) {
         cout << "\n+======================================================+\n";
-        cout << "|              WELCOME TO LocalO                         |\n";
+        cout << "|              WELCOME TO LocalO                       |\n";
         cout << "+======================================================+\n";
         cout << "|  1. Login                                            |\n";
         cout << "|  2. Create New Account                               |\n";
@@ -278,6 +281,7 @@ static void userSession(User* currentUser,
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 int main() {
+    system("chcp 65001 > nul"); 
     AuthenticationService authService;
     cout << "DEBUG current_path = " << filesystem::current_path() << "\n";
     cout << "DEBUG users loaded = " << authService.getUsers().size() << "\n";
