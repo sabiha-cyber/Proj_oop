@@ -88,7 +88,7 @@ bool PageManager::unfollowPage(User* user, int pageId) {
     return ok;
 }
 
-// ── Like / Comment on post ────────────────────────────────────────────────────
+// ── Like / Comment ────────────────────────────────────────────────────────────
 
 void PageManager::likePost(int pageId, int postId, User* user) {
     Page* p = findById(pageId);
@@ -111,7 +111,6 @@ void PageManager::listAllPages() const {
     for (const Page* p : pages)
         cout << "  [" << p->getPageId() << "] "
              << p->getPageName()
-             << "  Category: "  << p->getCategory()
              << "  Followers: " << p->followerCount()
              << "  Posts: "     << p->getPosts().size() << "\n";
 }
@@ -138,7 +137,6 @@ void PageManager::showPageMenu(int pageId, User* me) {
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
         switch (choice) {
-
         case 1: page->showPageInfo();   break;
         case 2: page->showTimeline();   break;
 
@@ -184,38 +182,71 @@ void PageManager::showPageMenu(int pageId, User* me) {
 }
 
 // ── Persistence ───────────────────────────────────────────────────────────────
-// File format: pageId|pageName|description|category|adminId|createdAt
+// File format (one page per line):
+//   pageId|pageName|description|category|adminId|createdAt|followerId1,followerId2,...
 
 void PageManager::saveToFile(const string& filename) const {
     ofstream out(filename);
     if (!out) { cout << "Error: cannot write to " << filename << "\n"; return; }
-    for (const Page* p : pages)
+
+    for (const Page* p : pages) {
+        // basic info
         out << p->getPageId()                                    << '|'
             << p->getPageName()                                  << '|'
             << p->getDescription()                               << '|'
             << p->getCategory()                                  << '|'
             << (p->getAdmin() ? p->getAdmin()->getUserId() : -1) << '|'
-            << static_cast<long long>(p->getCreatedAt())         << '\n';
+            << static_cast<long long>(p->getCreatedAt())         << '|';
+
+        // followers — comma-separated user IDs
+        const auto& followers = p->getFollowers();
+        for (int i = 0; i < (int)followers.size(); i++) {
+            if (i > 0) out << ',';
+            out << followers[i]->getUserId();
+        }
+        out << '\n';
+    }
 }
 
 void PageManager::loadFromFile(const string& filename, AuthenticationService& auth) {
     ifstream in(filename);
     if (!in) return;
+
     for (Page* p : pages) delete p;
     pages.clear();
+
     string line;
     while (getline(in, line)) {
         if (line.empty()) continue;
         istringstream ss(line);
+
+        // read 6 fixed fields
         string tok[6]; bool ok = true;
         for (int i = 0; i < 6; i++)
             if (!getline(ss, tok[i], '|')) { ok = false; break; }
         if (!ok) continue;
+
         int    id      = stoi(tok[0]);
         string name    = tok[1], desc = tok[2], cat = tok[3];
         int    adminId = stoi(tok[4]);
         time_t t       = static_cast<time_t>(stoll(tok[5]));
         User*  admin   = auth.findUserById(adminId);
-        pages.push_back(new Page(id, name, desc, cat, admin, t));
+
+        Page* page = new Page(id, name, desc, cat, admin, t);
+
+        // read followers field (may be empty)
+        string followerField;
+        getline(ss, followerField);  // rest of line after last '|'
+        if (!followerField.empty()) {
+            istringstream fs(followerField);
+            string idStr;
+            while (getline(fs, idStr, ',')) {
+                if (idStr.empty()) continue;
+                User* u = auth.findUserById(stoi(idStr));
+                if (u) page->followPage(u);
+            }
+        }
+
+        pages.push_back(page);
     }
 }
