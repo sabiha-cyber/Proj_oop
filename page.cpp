@@ -11,7 +11,7 @@ using namespace std;
 
 int Page::nextPageId = 1;
 
-// ── Constructors ──────────────────────────────────────────────────────────────
+
 
 Page::Page(const string& name, const string& desc, const string& cat, User* adm)
     : pageId(nextPageId++), pageName(name), description(desc),
@@ -29,7 +29,7 @@ Page::~Page() {
     for (Post* p : posts) delete p;
 }
 
-// ── Follow ────────────────────────────────────────────────────────────────────
+
 
 bool Page::followPage(User* user) {
     if (!user) return false;
@@ -67,7 +67,7 @@ void Page::showFollowers() const {
              << " (ID: " << u->getUserId() << ")\n";
 }
 
-// ── Posts ─────────────────────────────────────────────────────────────────────
+
 
 Post* Page::createPost(User* author, const string& content, const string& cat) {
     if (!author) { cout << "Error: no author.\n"; return nullptr; }
@@ -100,15 +100,13 @@ Post* Page::findPost(int postId) const {
     return nullptr;
 }
 
-// ── Like a post — delegates to Like::createLike (inside Post) ────────────────
-
 void Page::likePost(int postId, User* user) {
     Post* post = findPost(postId);
     if (!post) { cout << "Post #" << postId << " not found.\n"; return; }
     Like::createLike(user, post);   // Like and Post handle everything
 }
 
-// ── Comment on a post — delegates to Comment constructor (inside Post) ────────
+
 
 void Page::commentOnPost(int postId, User* user, const string& text) {
     Post* post = findPost(postId);
@@ -119,7 +117,7 @@ void Page::commentOnPost(int postId, User* user, const string& text) {
          << " commented on Post #" << postId << "\n";
 }
 
-// ── Display ───────────────────────────────────────────────────────────────────
+
 
 void Page::showPageInfo() const {
     cout << "\nPage Name : " << pageName        << "\n"
@@ -147,7 +145,7 @@ void Page::showLatestPost() const {
     posts.back()->viewPost();
 }
 
-// ── Getters / Setters ─────────────────────────────────────────────────────────
+
 
 int         Page::getPageId()      const { return pageId;      }
 string      Page::getPageName()    const { return pageName;    }
